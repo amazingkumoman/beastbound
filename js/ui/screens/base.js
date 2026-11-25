@@ -37,7 +37,7 @@ export const baseScreen = {
     el.querySelector('[data-go="equip"]').onclick = () => ctx.screens.go('equip', {});
     el.querySelector('[data-go="data"]').onclick = () => ctx.screens.go('data');
     el.querySelector('[data-go="settings"]').onclick = () => ctx.screens.go('settings');
-    el.querySelector('[data-go="notes"]').onclick = () => { ctx.autosave(); location.href = 'site.html'; }; // 研究ノート（60）
+    el.querySelector('[data-go="notes"]').onclick = () => { ctx.autosave(); try { sessionStorage.setItem('bb.resume', 'base'); } catch { /* 使えなくても開ける */ } location.href = 'site.html'; }; // 戻ったら拠点から（タイトルに戻さない） // 研究ノート（60）
     const ev = pendingEvent(ctx.store.get()); // 物語の出来事（拠点に戻ったとき）
     if (ev) setTimeout(() => showEvent(ctx, ev), 300);
     const arena = el.querySelector('[data-go="arena"]'); if (arena) arena.onclick = () => ctx.screens.go('arenaSetup', {});

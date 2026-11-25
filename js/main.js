@@ -66,7 +66,13 @@ function boot() {
   [titleScreen, nameScreen, introScreen, baseScreen, stubScreen, dataScreen, battleScreen, battleResultScreen, arenaSetupScreen, equipScreen, workshopScreen,
     shopScreen, storageScreen, canteenScreen, questBoardScreen, prepScreen, exploreScreen, huntResultScreen,
     sceneScreen, labScreen, labMonsterScreen, settingsScreen].forEach(s => ctx.screens.register(s));
-  ctx.screens.reset('title');
+  // 研究ノートから戻ったときは、タイトルを飛ばして拠点から再開する
+  let resume = null; try { resume = sessionStorage.getItem('bb.resume'); sessionStorage.removeItem('bb.resume'); } catch { /* なし */ }
+  const r = resume && saves ? saves.load() : null;
+  if (r?.ok && r.data.profile.flags.introSeen) {
+    store.replace(r.data, 'load');
+    if (store.get().suspend) ctx.screens.reset('explore', {}); else ctx.screens.reset('base');
+  } else ctx.screens.reset('title');
   if (!saves) toast('このブラウザでは保存ができません（プライベートモードなど）');
 
   window.BB = { ctx }; // 開発・確認用
