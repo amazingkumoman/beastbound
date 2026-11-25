@@ -24,7 +24,14 @@
 <script type="module" src="js/main.js"></script>
 <script>
 // ホーム画面アプリ（PWA）：電波なしでも動くように保存役を入れる。置けない場所（Claude のページなど）では何もしない
-try { if ('serviceWorker' in navigator && location.protocol === 'https:') navigator.serviceWorker.register('sw.js').catch(() => {}); } catch (e) { /* 使えない場所 */ }
+try {
+  if ('serviceWorker' in navigator && location.protocol === 'https:') {
+    // 新しい版が届いて入れ替わったら、一度だけ読み直して新しい版にする（古い版のまま遊び続けないように）
+    const had = !!navigator.serviceWorker.controller; let reloaded = false;
+    navigator.serviceWorker.addEventListener('controllerchange', () => { if (had && !reloaded) { reloaded = true; location.reload(); } });
+    navigator.serviceWorker.register('sw.js', { updateViaCache: 'none' }).then(r => r.update()).catch(() => {});
+  }
+} catch (e) { /* 使えない場所 */ }
 </script>
 </body>
 </html>
