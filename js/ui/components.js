@@ -1,5 +1,16 @@
 // 共通部品：文字の無害化・トースト・確認の小窓。11 画面遷移図 3章。
 
+/** 開発用の入口（試験場・試験用の依頼・試験用の素材）を見せるか。ふだんは隠す。
+ *  見せたいときはアドレスの最後に ?dev を付けて開く（その端末で覚える）。?nodev で戻す。 */
+export const DEV = (() => {
+  try {
+    const q = new URLSearchParams(location.search);
+    if (q.has('dev')) localStorage.setItem('bb.dev', '1');
+    if (q.has('nodev')) localStorage.removeItem('bb.dev');
+    return localStorage.getItem('bb.dev') === '1';
+  } catch { return false; }
+})();
+
 export function esc(s) {
   return String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 }

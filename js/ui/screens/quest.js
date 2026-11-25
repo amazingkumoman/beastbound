@@ -1,5 +1,5 @@
 // クエスト受付と狩猟前の準備（24 仕様書 11・16章、24b）。しくみは systems/hunt/hunt.js。
-import { esc, toast } from '../components.js';
+import { esc, toast, DEV } from '../components.js';
 import { npcBox, bindNpc } from './intro.js';
 import { POUCH_SLOTS, ITEMS } from '../../../data/items.js';
 import { HUNT, find as huntFind, KIND_NAME, TIME_NAME, startQuest, pouchProblems, defaultPouch, questUnlocked, allowedPouch } from '../../systems/hunt/hunt.js';
@@ -24,7 +24,7 @@ export const questBoardScreen = {
       <h2>下位の依頼</h2><div class="list">${open.filter(q => !q.rank).map(card).join('')}</div>
       ${locked ? `<p class="note">ほかに ${locked} 件、狩りを進めると受けられる依頼があります。</p>` : ''}
       ${save.profile.flags.masterClear && !save.profile.flags.exClear ? '<p class="note"><b>強化個体や高難度の依頼を終えると、さらに依頼が届きます。</b></p>' : ''}
-      <details class="dev-box"><summary>試験用の依頼（開発用）</summary><div class="list">${HUNT.quests.filter(q => q.dev).map(card).join('')}</div></details>
+      ${DEV ? `<details class="dev-box"><summary>試験用の依頼（開発用）</summary><div class="list">${HUNT.quests.filter(q => q.dev).map(card).join('')}</div></details>` : ''}
       <p class="note">どの依頼から受けてもかまいません。危険度が高い相手には、装備を整えてから挑むと楽になります。</p>
       <p class="note">失敗になるのは：3回力尽きる／撤退する／（特殊）制限時間を過ぎる。失敗しても、探索で拾った素材は持ち帰れます。</p></div>
       <div class="bottombar"><button class="btn" data-back>拠点へ戻る</button></div>`;

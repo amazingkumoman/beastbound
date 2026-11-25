@@ -1,6 +1,6 @@
 // 工房（拠点）：武器の派生ツリー・防具・装飾品を作る・強化する。22b 1・5・6章。
 // 素材は狩り・採取で集める。開発用の「試験用の素材を受け取る」は試験用の装備のためだけ。
-import { esc, toast } from '../components.js';
+import { esc, toast, DEV } from '../components.js';
 import { npcBox, bindNpc } from './intro.js';
 import { CATALOG, find, missing, craftWeapon, upgradeWeapon, craftArmor, upgradeArmor, armorUpgradeCost, armorMaxLevel, craftDeco, weaponTree, WEAPON_KIND_IDS } from '../../systems/gear/gear.js';
 import { WEAPON_KINDS } from '../../../data/weapons.js';
@@ -29,7 +29,7 @@ export const workshopScreen = {
     const hiddenNote = n => (n ? `<p class="note">まだ出会っていない大型の素材で作るものが、ほかに ${n} 種類あります。</p>` : '');
     if (tab === 'weapon') {
       const owned = save.inventory.weapons;
-      const tree = weaponTree(kind, { showDev: owned.some(w => find.weapon(w.nodeId)?.dev && find.weapon(w.nodeId).kindId === kind) }).filter(n => !n.dev || owned.some(w => w.nodeId === n.id || w.nodeId === n.parentId));
+      const tree = weaponTree(kind, { showDev: DEV }).filter(n => !n.dev || owned.some(w => w.nodeId === n.id || w.nodeId === n.parentId));
       const seenNode = n => (rankOk(n) && (!nodeMon(n) || knownMon(nodeMon(n)))) || owned.some(w => w.nodeId === n.id);
       // 親が見えていない派生は出さない（親の下に並ぶので、親がないと一覧の上のほうに浮いてしまう）
       const vis = new Set(); const shown = tree.filter(n => { const ok = owned.some(w => w.nodeId === n.id) || (seenNode(n) && (!n.parentId || vis.has(n.parentId))); if (ok) vis.add(n.id); return ok; });
@@ -50,17 +50,17 @@ export const workshopScreen = {
       body = `<h2>防具を作る</h2>${shownA.length ? '' : '<p class="empty">大型に出会うと、その素材で作れる防具がわかる。</p>'}<div class="list">${shownA.map(pc => `<div class="card">${armThumb(pc)}<span class="t"><b>${esc(pc.name)}</b><small>守り${pc.def}・${Object.entries(pc.skills).map(([k, n]) => `${find.skill(k).name}+${n}`).join('・')}${pc.unique ? `・固有：${esc(pc.unique.name)}` : ''}</small><small>${costText(save, pc.craft)}</small></span><span class="acts"><button class="btn small" data-make-armor="${pc.id}" ${missing(save, pc.craft).length ? 'disabled' : ''}>作る</button></span></div>`).join('')}</div>${hiddenNote(all.length - shownA.length)}
         <h2>手持ちの防具を強化</h2>${save.inventory.armors.length ? `<div class="list">${save.inventory.armors.map(a => { const pc = find.armor(a.pieceId); const max = a.level >= armorMaxLevel(pc); const c = armorUpgradeCost(pc, a.level); return `<div class="card">${armThumb(pc)}<span class="t"><b>${esc(pc.name)} Lv${a.level}${max ? '<em>最大</em>' : ''}</b><small>${max ? 'これ以上強くできない' : `Lv${a.level + 1}へ（守り+${pc.defPerLevel ?? 2}）：${costText(save, c)}`}</small></span><span class="acts"><button class="btn small" data-up-armor="${a.uid}" ${max || missing(save, c).length ? 'disabled' : ''}>強化</button></span></div>`; }).join('')}</div>` : '<p class="empty">まだ持っていない。</p>'}`;
     } else {
-      const allD = CATALOG.decorations.filter(d => !d.dev || save.inventory.decorations[d.id]);
+      const allD = CATALOG.decorations.filter(d => !d.dev || (DEV && save.inventory.decorations[d.id]));
       const shownD = allD.filter(d => save.inventory.decorations[d.id] || (rankOk(d) && Object.keys(d.craft).every(knownMat)));
       body = `<h2>装飾品を作る</h2>${shownD.length ? '' : '<p class="empty">素材を手に入れると、作れる装飾品がわかる。</p>'}<div class="list">${shownD.map(d => `<div class="card"><span class="t"><b>${esc(d.name)}（${({ s: '小', m: '中', l: '大' })[d.size]}）<em>持っている ${save.inventory.decorations[d.id] || 0}</em></b><small>${esc(find.skill(d.skillId).name)}+${d.points}</small><small>${costText(save, d.craft)}</small></span><span class="acts"><button class="btn small" data-make-deco="${d.id}" ${missing(save, d.craft).length ? 'disabled' : ''}>作る</button></span></div>`).join('')}</div>${allD.length - shownD.length ? `<p class="note">まだ知らない素材で作る装飾品が、ほかに ${allD.length - shownD.length} 種類あります。</p>` : ''}`;
     }
-    const mats = CATALOG.materials.filter(m => save.inventory.materials[m.id] > 0).map(m => `${esc(m.name)} ${save.inventory.materials[m.id]}`).join('　') || 'まだない';
+    const mats = CATALOG.materials.filter(m => save.inventory.materials[m.id] > 0 && (!m.dev || DEV)).map(m => `${esc(m.name)} ${save.inventory.materials[m.id]}`).join('　') || 'まだない';
     return `
       <div class="head"><div><div class="place">WORKSHOP</div><h1>工房</h1></div></div>
       <div class="bottombar tabs">${tabs}</div>
       <div class="paper">${npcBox(save, 'fac_workshop')}${body}
         <h2>素材</h2><p class="note">${mats}</p>
-        <button class="btn dev" data-gift>試験用の素材を受け取る（開発用）</button>
+        ${DEV ? '<button class="btn dev" data-gift>試験用の素材を受け取る（開発用）</button>' : ''}
       </div>
       <div class="bottombar"><button class="btn" data-back>拠点へ戻る</button></div>`;
   },
@@ -82,7 +82,7 @@ export const workshopScreen = {
     el.querySelectorAll('[data-make-armor]').forEach(b => { b.onclick = () => done(craftArmor(s(), b.dataset.makeArmor), `${find.armor(b.dataset.makeArmor).name}を作った`); });
     el.querySelectorAll('[data-up-armor]').forEach(b => { b.onclick = () => done(upgradeArmor(s(), Number(b.dataset.upArmor)), '防具を強化した'); });
     el.querySelectorAll('[data-make-deco]').forEach(b => { b.onclick = () => done(craftDeco(s(), b.dataset.makeDeco), `${find.deco(b.dataset.makeDeco).name}を作った`); });
-    el.querySelector('[data-gift]').onclick = () => {
+    const gift = el.querySelector('[data-gift]'); if (gift) gift.onclick = () => {
       ctx.store.update(st => { for (const [m, n] of Object.entries(TEST_MATERIAL_GIFT)) st.inventory.materials[m] = (st.inventory.materials[m] || 0) + n; return st; });
       ctx.autosave(); toast('試験用の素材を受け取った'); stay({});
     };

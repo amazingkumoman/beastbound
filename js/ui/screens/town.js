@@ -1,5 +1,5 @@
 // 拠点の施設：ショップ・素材保管庫・食事施設（24b 6・7章）。しくみは systems/hunt/hunt.js。
-import { esc, toast, confirmDialog } from '../components.js';
+import { esc, toast, confirmDialog, DEV } from '../components.js';
 import { npcBox, bindNpc } from './intro.js';
 import { MONEY, ITEMS, FOODS, ITEM_BOX_MAX } from '../../../data/items.js';
 import { buyItem, eatFood, sellMaterial, bulkSellPlan, bulkSell, setProtect, setKeep, rarityOf, sellPrice, usedInCrafting, find as huntFind } from '../../systems/hunt/hunt.js';
@@ -74,7 +74,7 @@ export const storageScreen = {
   id: 'storage',
   render(ctx) {
     const save = ctx.store.get();
-    const mats = Object.entries(save.inventory.materials).filter(([, n]) => n > 0)
+    const mats = Object.entries(save.inventory.materials).filter(([id, n]) => n > 0 && (!find.material(id)?.dev || DEV)) // 試験用の素材はふだん出さない
       .sort((a, b) => (find.material(a[0])?.rarity ?? 1) - (find.material(b[0])?.rarity ?? 1));
     const items = Object.entries(save.inventory.items).filter(([, n]) => n > 0);
     return `${head('STORAGE', '素材保管庫', save)}

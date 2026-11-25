@@ -1,5 +1,5 @@
 // 拠点（正式方針4章）。施設の入口。中身ができていない施設は「準備中」の画面へ。
-import { esc } from '../components.js';
+import { esc, DEV } from '../components.js';
 import { money } from './town.js';
 import { pendingEvent } from '../../systems/story/story.js';
 import { showEvent } from './intro.js';
@@ -26,7 +26,7 @@ export const baseScreen = {
         <button class="btn" data-go="data">データ管理<small>書き出し・読み込み</small></button>
         <button class="btn" data-go="settings">設定<small>音・文字</small></button>
         <button class="btn wide" data-go="notes">研究ノート<small>開いた情報をまとめて読む（攻略・研究）</small></button>
-        <button class="btn wide dev" data-go="arena">試験場（開発用）<small>戦闘のしくみを試す・記録には残らない</small></button>
+        ${DEV ? '<button class="btn wide dev" data-go="arena">試験場（開発用）<small>戦闘のしくみを試す・記録には残らない</small></button>' : ''}
         <button class="btn wide" data-go="title">タイトルへ<small>記録は自動で保存されています</small></button>
       </nav>`;
   },
@@ -40,7 +40,7 @@ export const baseScreen = {
     el.querySelector('[data-go="notes"]').onclick = () => { ctx.autosave(); location.href = 'site.html'; }; // 研究ノート（60）
     const ev = pendingEvent(ctx.store.get()); // 物語の出来事（拠点に戻ったとき）
     if (ev) setTimeout(() => showEvent(ctx, ev), 300);
-    el.querySelector('[data-go="arena"]').onclick = () => ctx.screens.go('arenaSetup', {});
+    const arena = el.querySelector('[data-go="arena"]'); if (arena) arena.onclick = () => ctx.screens.go('arenaSetup', {});
     el.querySelector('[data-go="title"]').onclick = () => { ctx.autosave(); ctx.screens.reset('title'); };
   },
 };
