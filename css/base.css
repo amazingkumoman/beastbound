@@ -341,5 +341,7 @@ h2.locked { opacity: .5; }
 .arm-thumb img { max-width: 100%; max-height: 100%; object-fit: contain; }
 
 .io-text { width: 100%; font: 12px monospace; margin: 6px 0; border: 1px solid #8a6a3e88; border-radius: 3px; background: #fff8; color: inherit; padding: 6px; }
-/* 戦闘中にモンスターの絵を揺らさない（2026-11-25 ユーザー：「戦闘中に絵を揺らすのやめて」）。色や光での合図は残す */
-.mon, .mon .mon-body { animation: none !important; }
+/* 戦闘中にモンスターの絵を揺らし続けない（2026-11-25 ユーザー：「戦闘中に絵を揺らすのやめて」）。色や光での合図は残す */
+/* 2026-11-25 追記「特定の時に動くのはいい。常に揺れてるのはやめて」→ ずっと続く動き（予兆の間の揺れ・弱り・疲れの息づかい）だけ止める。
+   当たったとき・部位を壊したとき・大技をためている間の動きは残す */
+.mon.wind .mon-body, .mon.weak .mon-body, .mon.tired .mon-body { animation: none !important; }
