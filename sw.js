@@ -12,6 +12,6 @@ self.addEventListener('fetch', e => {
   if (e.request.method !== 'GET') return;
   const url = new URL(e.request.url); if (url.origin !== location.origin) return;
   // 画面（index.html）は先に新しいものを取りにいき、取れなければ保存したものを使う。ほかは保存したものを使う
-  if (e.request.mode === 'navigate') { e.respondWith(fetch(e.request).catch(() => caches.match('./'))); return; }
-  e.respondWith(caches.match(e.request, { ignoreSearch: true }).then(r => r || fetch(e.request)));
+  if (e.request.mode === 'navigate') { e.respondWith(fetch(e.request).catch(() => caches.open(VERSION).then(c => c.match('./')))); return; }
+  e.respondWith(caches.open(VERSION).then(c => c.match(e.request, { ignoreSearch: true })).then(r => r || fetch(e.request))); // 今の版の保存だけを見る
 });
