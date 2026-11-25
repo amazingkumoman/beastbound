@@ -15,6 +15,8 @@ import { LOW2_MATERIALS, LOW2_ARMOR_SETS, LOW2_ARMORS, LOW2_WEAPON_TREE } from '
 import { HIGH2_MATERIALS, HIGH2_ARMOR_SETS, HIGH2_ARMORS, HIGH2_WEAPON_TREE, HIGH2_DECORATIONS } from '../../../data/gear_high2.js';
 import { EX_MATERIALS, EX_WEAPON_TREE, EX_ARMOR_SETS, EX_ARMORS } from '../../../data/endgame.js';
 import { MASTER2_MATERIALS, MASTER2_ARMOR_SETS, MASTER2_ARMORS, MASTER2_DECORATIONS, MASTER2_WEAPON_TREE } from '../../../data/gear_master2.js';
+import { applyNames } from '../../../data/names.js';
+import { keepWeapon } from '../../../data/weapon_lines.js';
 import { MASTER_MATERIALS, MASTER_ARMOR_SETS, MASTER_ARMORS, MASTER_DECORATIONS, MASTER_WEAPON_TREE, MASTER_GATHER_SETS, MASTER_GATHER_ARMORS } from '../../../data/gear_master.js';
 
 // ─── 一覧：正式（第8段階）＋試験用（dev：開発用。持っていれば使えるが、工房の一覧には出さない） ──
@@ -26,6 +28,10 @@ export const CATALOG = {
   decorations: [...DECORATIONS, ...HIGH_DECORATIONS, ...HIGH2_DECORATIONS, ...MASTER_DECORATIONS, ...MASTER2_DECORATIONS, ...dev(TEST_DECORATIONS)],
   materials: [...MATERIALS, ...LOW2_MATERIALS, ...HIGH_MATERIALS, ...HIGH2_MATERIALS, ...MASTER_MATERIALS, ...MASTER2_MATERIALS, ...EX_MATERIALS, ...dev(TEST_MATERIALS)],
 };
+// 1体の素材から作れる武器は2種類まで（data/weapon_lines.js）。消えた派生を持っている記録は、normalize で近い武器に置き換える
+const ALL_WEAPONS = CATALOG.weapons;
+CATALOG.weapons = CATALOG.weapons.filter(keepWeapon);
+applyNames(CATALOG); // 装備の名前を付け直す（data/names.js）
 const byId = list => Object.fromEntries(list.map(x => [x.id, x]));
 const W = byId(CATALOG.weapons), A = byId(CATALOG.armors), S = byId(CATALOG.sets), D = byId(CATALOG.decorations), SK = byId(SKILLS);
 export const find = { weapon: id => W[id], armor: id => A[id], set: id => S[id], deco: id => D[id], skill: id => SK[id], material: id => CATALOG.materials.find(m => m.id === id) };
@@ -46,6 +52,7 @@ export function normalize(save) {
   if (!inv.decorations || Array.isArray(inv.decorations)) inv.decorations = Object.assign({}, ...(Array.isArray(inv.decorations) ? inv.decorations.filter(d => d && typeof d === 'object') : []));
   const lo = save.loadout ??= {};
   lo.armor ??= {}; lo.techs ??= {};
+  for (const w of inv.weapons) if (!find.weapon(w.nodeId)) { const r = replacementFor(w.nodeId); if (r) { w.nodeId = r.id; w.decos = r.slots.map((sz, i) => w.decos?.[i] ?? null); } } // 減らした派生を持っていたら置き換える
   for (const b of BASE_WEAPONS) { // 6種の武器は最初から全部使える（D-09）
     if (!inv.weapons.some(w => find.weapon(w.nodeId)?.kindId === b.kindId)) inv.weapons.push({ uid: newUid(save), nodeId: b.id, decos: b.slots.map(() => null) });
   }
@@ -62,12 +69,89 @@ export function normalize(save) {
 }
 function newUid(save) { return save.inventory.nextUid++; }
 
-// ─── 素材 ───────────────────────────────────────────────
-export function missing(save, cost = {}) {
-  return Object.entries(cost).filter(([m, n]) => (save.inventory.materials[m] || 0) < n)
-    .map(([m, n]) => ({ id: m, name: find.material(m)?.name ?? m, need: n, have: save.inventory.materials[m] || 0 }));
+// ─── 素材とお金（2026-11-25 ユーザー：「強化の素材が同じものばかりはやめて。必要な物・個数・金額を変えて差別化」） ──
+// 費用の中の 'money' はお金（ルク）。ほかは素材の id。
+export const MONEY = 'money';
+const isMonMat = id => /^mat_(m\d|ex_)/.test(id);
+const PART_MUL = { head: 1, chest: 1.5, arms: 1, waist: 0.75, legs: 1.25 };
+const RANK_ARMOR = { low: { craft: 150, up: 30 }, high: { craft: 600, up: 40 }, master: { craft: 1000, up: 80 } }; // 1回の狩りの報酬（下位500・上位1400・マスター級3000前後）で、1式を作って強化しきるのに7〜9回ほど
+const TIER_MONEY = [0, 200, 400, 900, 1400, 3000, 4500, 8000];
+const DECO_MONEY = { low: 150, high: 500, master: 1500 };
+// 武器の種類で、要る素材の比重を変える：[いちばん多い素材の倍率, 2番目の素材を足す数, その土地の素材を足す数]
+const KIND_MIX = { greatsword: [1.25, 0, 0], hammer: [1.25, 0, 1], twinblades: [0.75, 1, 0], bow: [0.75, 2, 0], lance: [1, 1, 1], chainblade: [0.9, 1, 0] };
+const r10 = n => Math.max(10, Math.round(n / 10) * 10);
+function mixWeaponCost(cost, kind) {
+  if (!cost) return cost;
+  const [mul, addSecond, addField] = KIND_MIX[kind] ?? [1, 0, 0];
+  const mon = Object.keys(cost).filter(isMonMat), field = Object.keys(cost).filter(id => !isMonMat(id) && id !== MONEY);
+  const out = { ...cost };
+  if (mon[0]) out[mon[0]] = Math.max(1, Math.round(cost[mon[0]] * mul));
+  if (mon[1] && addSecond) out[mon[1]] = cost[mon[1]] + addSecond;
+  if (field[0] && addField) out[field[0]] = cost[field[0]] + addField;
+  return out;
 }
-function pay(save, cost = {}) { for (const [m, n] of Object.entries(cost)) save.inventory.materials[m] -= n; }
+/** 防具の強化：段階で要る物が変わる（Lv1〜3 よく出る素材／Lv4〜6 部位の素材も／Lv7〜 めずらしい素材とその土地の鉱石）。部位で個数、ランクでお金が変わる */
+function armorUpTable(p) {
+  const rarity = id => find.material(id)?.rarity ?? 1;
+  const mon = Object.keys(p.craft).filter(isMonMat).sort((a, b) => rarity(a) - rarity(b));
+  const field = [...new Set([...Object.keys(p.craft), ...Object.keys(p.upgrade || {})])].filter(id => !isMonMat(id) && id !== MONEY);
+  const pm = PART_MUL[p.part] ?? 1, money = (RANK_ARMOR[p.rank || 'low'] ?? RANK_ARMOR.low).up;
+  const max = armorMaxLevel(p), tab = {};
+  for (let lv = 1; lv < max; lv++) {
+    const c = {}, add = (id, n) => { if (id && n > 0) c[id] = (c[id] || 0) + Math.ceil(n); };
+    if (mon.length) {
+      if (lv <= 3) add(mon[0], (lv + 1) * pm * 0.8);
+      else if (lv <= 6) { add(mon[0], lv * pm * 0.6); add(mon[1] ?? mon[0], (lv - 2) * pm * 0.5); }
+      else { add(mon[1] ?? mon[0], lv * pm * 0.4); add(mon[mon.length - 1], 1 + Math.floor((lv - 7) / 2)); }
+    }
+    if (field.length) add(lv >= 7 ? field[field.length - 1] : field[0], 1 + Math.floor(lv / 3));
+    if (!mon.length && field[1]) add(field[1], lv * pm * 0.6); // 採取の防具は、その土地の素材だけで強くする
+    c[MONEY] = r10(money * lv * pm);
+    tab[lv] = c;
+  }
+  return tab;
+}
+function applyCosts(C) {
+  for (const w of C.weapons) {
+    if (w.dev || !w.tier) continue;
+    const kind = w.kindId.slice(3), m = TIER_MONEY[w.tier] ?? 9000;
+    w.craft = { ...mixWeaponCost(w.craft, kind), [MONEY]: r10(m) };
+    if (w.upgrade) w.upgrade = { ...mixWeaponCost(w.upgrade, kind), [MONEY]: r10(m * 0.55) };
+  }
+  for (const a of C.armors) {
+    if (a.dev) continue;
+    a.craft = { ...a.craft, [MONEY]: r10((RANK_ARMOR[a.rank || 'low'] ?? RANK_ARMOR.low).craft * (PART_MUL[a.part] ?? 1)) };
+    a._up = null; // 強化の表は初めて使うときに作る（find が使えるようになってから）
+  }
+  for (const d of C.decorations) if (!d.dev) d.craft = { ...d.craft, [MONEY]: DECO_MONEY[d.rank || 'low'] ?? 150 };
+}
+applyCosts(CATALOG); // 作る・強化するのに要る素材とお金
+/** 一覧から消した派生の代わり：同じ種類・同じ段（なければ1つ下の段）で、同じ属性のものを優先 */
+export function replacementFor(oldId) {
+  const o = ALL_WEAPONS.find(x => x.id === oldId); if (!o) return null;
+  const el = x => x.element?.type ?? x.ail?.type ?? null;
+  const pool = CATALOG.weapons.filter(x => x.kindId === o.kindId && !x.dev);
+  for (let t = o.tier; t >= 0; t--) {
+    const same = pool.filter(x => x.tier === t); if (!same.length) continue;
+    return same.find(x => el(x) === el(o)) ?? same[0];
+  }
+  return pool[0] ?? null;
+}
+/** 試し打ち用：その種類で、その段にある派生のうち、相手にいちばん効くもの（なければ1つ下の段） */
+export function bestWeaponFor(kindId, tier, monster) {
+  const pool = CATALOG.weapons.filter(x => x.kindId === kindId && !x.dev && x.parentId);
+  const score = x => (x.element ? (monster?.elem?.[x.element.type] ?? 1) * x.element.value : 0) + (x.ail ? (monster?.ailRes?.[x.ail.type] ? 1 / monster.ailRes[x.ail.type] : 1) * x.ail.value * 0.5 : 0) + x.powerMult * 100;
+  for (let t = tier; t >= 1; t--) { const same = pool.filter(x => x.tier === t); if (same.length) return same.sort((a, b) => score(b) - score(a))[0]; }
+  return CATALOG.weapons.find(x => x.kindId === kindId && !x.parentId);
+}
+
+// ─── 素材 ───────────────────────────────────────────────
+const haveOf = (save, m) => (m === MONEY ? save.inventory.money || 0 : save.inventory.materials[m] || 0);
+export function missing(save, cost = {}) {
+  return Object.entries(cost).filter(([m, n]) => haveOf(save, m) < n)
+    .map(([m, n]) => ({ id: m, name: m === MONEY ? 'ルク' : find.material(m)?.name ?? m, need: n, have: haveOf(save, m) }));
+}
+function pay(save, cost = {}) { for (const [m, n] of Object.entries(cost)) { if (m === MONEY) save.inventory.money = (save.inventory.money || 0) - n; else save.inventory.materials[m] -= n; } }
 
 // ─── 装飾品 ─────────────────────────────────────────────
 export function slotFits(slotSize, decoSize) { return SLOT_SIZES.find(s => s.id === slotSize)?.fits.includes(decoSize) ?? false; }
@@ -120,7 +204,11 @@ export function craftArmor(save, pieceId) {
 }
 /** 防具の強化の上限（下位5・上位8） */
 export const armorMaxLevel = piece => piece?.maxLevel ?? ARMOR_MAX_LEVEL;
-export function armorUpgradeCost(piece, level) { return Object.fromEntries(Object.entries(piece.upgrade).map(([m, n]) => [m, n * level])); }
+export function armorUpgradeCost(piece, level) {
+  if (piece.dev || !('_up' in piece)) return Object.fromEntries(Object.entries(piece.upgrade).map(([m, n]) => [m, n * level])); // 試験用は前のまま
+  piece._up ??= armorUpTable(piece);
+  return piece._up[level] ?? piece._up[Math.max(...Object.keys(piece._up).map(Number))] ?? {};
+}
 export function upgradeArmor(save, uid) {
   const a = save.inventory.armors.find(x => x.uid === uid); if (!a) return { ok: false, error: '持っていない' };
   if (a.level >= armorMaxLevel(find.armor(a.pieceId))) return { ok: false, error: 'これ以上強くできない' };

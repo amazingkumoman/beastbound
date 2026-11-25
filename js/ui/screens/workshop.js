@@ -2,12 +2,13 @@
 // 素材は狩り・採取で集める。開発用の「試験用の素材を受け取る」は試験用の装備のためだけ。
 import { esc, toast, DEV } from '../components.js';
 import { npcBox, bindNpc } from './intro.js';
-import { CATALOG, find, missing, craftWeapon, upgradeWeapon, craftArmor, upgradeArmor, armorUpgradeCost, armorMaxLevel, craftDeco, weaponTree, WEAPON_KIND_IDS } from '../../systems/gear/gear.js';
+import { CATALOG, find, missing, craftWeapon, upgradeWeapon, craftArmor, upgradeArmor, armorUpgradeCost, armorMaxLevel, craftDeco, weaponTree, WEAPON_KIND_IDS, MONEY } from '../../systems/gear/gear.js';
 import { WEAPON_KINDS } from '../../../data/weapons.js';
 import { ARMOR_MAX_LEVEL, TEST_MATERIAL_GIFT } from '../../../data/testGear.js';
 import { weaponLine } from './equip.js';
 
 const costText = (save, cost) => Object.entries(cost || {}).map(([m, n]) => {
+  if (m === MONEY) { const have = save.inventory.money || 0; return `<span class="${have < n ? 'short' : ''}">${n.toLocaleString()}ルク</span>`; } // お金
   const have = save.inventory.materials[m] || 0;
   return `<span class="${have < n ? 'short' : ''}">${esc(find.material(m)?.name ?? m)} ${n}（${have}）</span>`;
 }).join('・') || '素材なし';
