@@ -1,0 +1,135 @@
+// 【ネタバレ注意】下位に足す大型4種（第13段階・80 の1回目）。設計は docs/spec/secret/追加の大型.md。
+// 報告・コミットの説明では、ここの中身に触れないこと（D-29）。
+// 新しい決まり：burrow=潜る（地中にいる間は攻撃が届かない）／under=地中にいるときだけの行動／surface=出てくる
+const L = Number(globalThis.process?.env?.LO_POW || 3.0); // 強さの倍率（試し打ちで調整）
+const pw = n => Math.round(n * L);
+const sign = (id, a, b) => [{ id: `sg_${id}_1`, when: { hpBelow: 0.6 }, text: a }, { id: `sg_${id}_2`, when: { hpBelow: 0.3 }, text: b }];
+const common = { rage: { mult: 1.2, turns: [4, 6], damageGain: 150, breakGain: 25, adaptGain: 10 }, fatigue: { threshold: 70, turns: [2, 3], recover: 40, mult: 0.8, text: '息が荒く、動きが重い。' } };
+const rewards = (k, parts) => ({
+  hunt: [{ id: `mat_${k}_a`, w: 40 }, { id: `mat_${k}_b`, w: 22 }, { id: `mat_${k}_c`, w: 18 }, { id: `mat_${k}_d`, w: 10 }, { id: `mat_${k}_e`, w: 10 }],
+  capture: [{ id: `mat_${k}_a`, w: 34 }, { id: `mat_${k}_b`, w: 18 }, { id: `mat_${k}_c`, w: 18 }, { id: `mat_${k}_d`, w: 15 }, { id: `mat_${k}_e`, w: 15 }],
+  parts,
+});
+
+const TUNE = { mon_m10: 1.45, mon_m11: 1.4, mon_m12: 0.7 }; // 種ごとの調整（試し打ち）
+export const LOW2_MONSTERS = [
+  {
+    id: 'mon_m09', name: 'ゴラム', alias: '砂潜りの大蚯蚓', art: 'mon.m09', hp: 2200, startRange: 'mid', ...common,
+    lore: { kind: '環虫・峡谷の地下の住人', habits: '赤風の峡谷の砂地の下を泳ぐように進む。夜になると地上に出て、谷底の骨や獣を丸のみにする。',
+      ecology: '目はほとんど見えず、地面の揺れで獲物を探す。潜っている間は刃も矢も届かない。出てくる前には、必ず地面が盛り上がる。',
+      tips: '潜ったら、出てくる場所の予兆を待ってよける。水の力がよく効く。', rage: '口の中を傷つけられると、すぐに気が立つ。' },
+    body: { cut: 1.0, blunt: 1.1, pierce: 1.1, shot: 0.9 }, elem: { fire: 0.8, water: 1.3, thunder: 1.0, ice: 1.0, dragon: 1.0 },
+    parts: {
+      maw: { name: '口', x: 30, y: 30, hpRatio: 0.15, z: { cut: 1.2, blunt: 1.3, pierce: 1.3, shot: 1.2 }, onBreak: { down: 1, disable: ['act_m09_swallow'], text: '口の牙をへし折った！ のたうち回っている。' } },
+      body: { name: '胴の節', x: 55, y: 55, hpRatio: 0.2, z: { cut: 1.2, blunt: 1.0, pierce: 1.0, shot: 1.0 }, onBreak: { down: 1, text: '胴の節が裂けた！' } },
+      tail: { name: '尾の節', x: 85, y: 70, hpRatio: 0.13, z: { cut: 1.3, blunt: 0.9, pierce: 1.0, shot: 1.0 }, onBreak: { down: 1, disable: ['act_m09_lash'], text: '尾の節を断ち切った！' } },
+    },
+    acts: [
+      { id: 'act_m09_bite', name: '噛みつき', w: 3, power: pw(22), weight: 2, reach: ['near'], tell: '口を大きく開き、牙を震わせた ─ 噛みつきの予兆' },
+      { id: 'act_m09_lash', name: '尾の打ちつけ', w: 2, power: pw(20), weight: 2, wide: true, reach: ['near', 'mid'], tell: '尾の節を高く持ち上げた ─ 打ちつけの予兆' },
+      { id: 'act_m09_sand', name: '砂吐き', w: 2, power: pw(16), weight: 1, wide: true, reach: ['mid', 'far'], tell: '喉が大きく波打った ─ 砂吐きの予兆' },
+      { id: 'act_m09_swallow', name: '丸のみ', w: 1, power: pw(28), weight: 3, reach: ['near'], ail: 'paralysis', tell: '体をぐっと縮めた ─ 丸のみの予兆（つかまると動けない）' },
+      { id: 'act_m09_dig', name: '潜る', w: 2, move: 'mid', burrow: true, moveText: 'ゴラムは砂の中へ潜った！（攻撃が届かない）', tell: '頭を地面に押しつけ、砂をかき始めた ─ 潜る気配' },
+      { id: 'act_m09_rise', name: '突き上げ', w: 3, power: pw(30), weight: 3, reach: ['near', 'mid', 'far'], under: true, surface: true, moveTo: 'near', tell: '足元の地面が盛り上がってきた ─ 突き上げの予兆', fatigue: 15 },
+      { id: 'act_m09_rumble', name: '地鳴り', w: 1, power: pw(14), weight: 1, wide: true, reach: ['near', 'mid', 'far'], under: true, tell: '地面の下で何かが暴れている' },
+      { id: 'act_m09_frenzy', name: '連続の突き上げ', w: 2, power: pw(34), weight: 3, wide: true, reach: ['near', 'mid'], rageOnly: true, tell: '辺り一面の砂が渦を巻いている ─ 連続の突き上げの予兆', fatigue: 18 },
+      { id: 'act_m09_idle', name: '様子見', w: 1, idle: true },
+    ],
+    idleText: ['頭を左右に振り、地面の揺れを探っている。', '砂の中から体の一部をのぞかせている。'],
+    adaptSpeed: 0.9, ailRes: { poison: 1.0, paralysis: 1.0, sleep: 1.0, bleed: 0.8, stun: 1.2 },
+    flee: { hpBelow: 0.22, chance: 0.3, once: true, text: 'ゴラムは深く潜り、どこかへ消えた！' },
+    signs: sign('m09', '節のあちこちから砂がこぼれている。', '潜る動きが鈍く、体を引きずっている。'),
+    capture: { hpBelow: 0.25, text: '砂に潜りきれず、体をくねらせている。（捕まえられそうだ）' },
+    rewards: rewards('m09', { maw: 'mat_m09_b', body: 'mat_m09_a', tail: 'mat_m09_c' }),
+    observe: { dawn: '谷底の砂地が、ゆっくり波打っている。', day: '砂の下を何かが進んでいる。', dusk: '砂から頭を出し、辺りをうかがっている。', night: '地上に出て、骨を丸のみにしている。' },
+  },
+  {
+    id: 'mon_m10', name: 'バルガ', alias: '豪腕の猿獣', art: 'mon.m10', hp: 2600, startRange: 'near', ...common,
+    lore: { kind: '獣・森の暴れ者', habits: '古塔の森の木立を、腕で枝をつかんで渡り歩く。朝は木の実を、夕方は縄張りの見回りをする。',
+      ecology: '太い腕で岩を投げ、つかんだ相手を振り回す。気が立つと胸を叩いて吠え、手のつけられない乱打をくり出す。',
+      tips: 'つかまれると動けなくなる。腕を壊すと投げも乱打も弱まる。火の力がよく効く。', rage: '腕を傷つけられると、胸を叩いて怒り出す。' },
+    body: { cut: 1.0, blunt: 1.0, pierce: 1.0, shot: 1.0 }, elem: { fire: 1.3, water: 1.0, thunder: 0.9, ice: 0.9, dragon: 1.0 },
+    parts: {
+      head: { name: '頭', x: 42, y: 20, hpRatio: 0.15, z: { cut: 1.2, blunt: 1.35, pierce: 1.1, shot: 1.25 }, onBreak: { down: 1, text: '頭の飾り毛を断ち、よろめかせた！' } },
+      arms: { name: '腕', x: 22, y: 50, hpRatio: 0.2, z: { cut: 1.25, blunt: 1.1, pierce: 1.1, shot: 1.0 }, onBreak: { down: 1, disable: ['act_m10_throw', 'act_m10_frenzy'], text: '腕の筋を断った！ 投げも乱打もできなくなった。' } },
+      back: { name: '背', x: 60, y: 30, hpRatio: 0.14, z: { cut: 1.0, blunt: 1.0, pierce: 1.0, shot: 1.1 }, onBreak: { down: 1, text: '背の毛皮を裂いた！' } },
+    },
+    acts: [
+      { id: 'act_m10_punch', name: '殴りつけ', w: 3, power: pw(22), weight: 2, reach: ['near'], tell: '拳を大きく振りかぶった ─ 殴りつけの予兆' },
+      { id: 'act_m10_slam', name: '両腕の叩きつけ', w: 2, power: pw(30), weight: 3, reach: ['near'], tell: '両腕を頭の上で組んだ ─ 叩きつけの予兆', fatigue: 12 },
+      { id: 'act_m10_throw', name: '岩投げ', w: 2, power: pw(20), weight: 2, reach: ['mid', 'far'], tell: '地面の岩を両手で抱え上げた ─ 岩投げの予兆' },
+      { id: 'act_m10_grab', name: 'つかみ投げ', w: 2, power: pw(26), weight: 2, reach: ['near', 'mid'], ail: 'paralysis', moveTo: 'near', tell: '腕を大きく広げ、身を乗り出した ─ つかみの予兆（つかまると動けない）' },
+      { id: 'act_m10_leap', name: '跳びかかり', w: 2, power: pw(28), weight: 3, unguardable: true, reach: ['mid', 'far'], moveTo: 'near', tell: '木の幹を蹴って高く跳んだ ─ 跳びかかりの予兆' },
+      { id: 'act_m10_drum', name: '胸叩き', w: 1, idle: true },
+      { id: 'act_m10_frenzy', name: '乱打', w: 2, power: pw(36), weight: 3, wide: true, reach: ['near', 'mid'], rageOnly: true, tell: '吠えながら両腕を振り回し始めた ─ 乱打の予兆', fatigue: 18 },
+      { id: 'act_m10_back', name: '跳び退き', w: 1, move: 'far', moveText: 'バルガは木の上へ跳び移った。（遠）', tell: '枝を見上げ、腰を落とした' },
+    ],
+    idleText: ['胸を叩いて、低く吠えた。', '木の実をかじりながら、こちらをにらんでいる。'],
+    adaptSpeed: 1.1, ailRes: { poison: 1.0, paralysis: 1.0, sleep: 0.9, bleed: 1.0, stun: 1.0 },
+    flee: { hpBelow: 0.22, chance: 0.25, once: true, text: 'バルガは木から木へ跳び移り、逃げていった！' },
+    signs: sign('m10', '毛皮のあちこちが赤く汚れている。', '腕をだらりと下げ、肩で息をしている。'),
+    capture: { hpBelow: 0.25, text: '木にもたれかかり、立ち上がれないでいる。（捕まえられそうだ）' },
+    rewards: rewards('m10', { head: 'mat_m10_c', arms: 'mat_m10_b', back: 'mat_m10_a' }),
+    observe: { dawn: '木の上で、木の実をむさぼっている。', day: '木立の間で、うたた寝をしている。', dusk: '縄張りを見回り、木を揺すって威嚇している。', night: '高い枝の上で丸くなって眠っている。' },
+  },
+  {
+    id: 'mon_m11', name: 'カブラ', alias: '鎧角の甲虫', art: 'mon.m11', hp: 2300, startRange: 'mid', ...common,
+    lore: { kind: '甲虫・森の夜の主', habits: '夕方から夜にかけて、古塔の森の湧き水の窪地に飛んでくる。昼は朽ち木の中で眠る。',
+      ecology: '大きな角で相手をすくい上げる。危ないと感じると羽をたたんで甲を閉じ、しばらく攻撃を受けつけない。短い距離なら飛べる。',
+      tips: '甲を閉じたら、無理に攻めずに整える。開いた直後と、角の付け根が狙い目。雷の力がよく効く。', rage: '角を傷つけられると気が立つ。' },
+    body: { cut: 0.9, blunt: 1.0, pierce: 0.9, shot: 0.9 }, elem: { fire: 1.0, water: 0.9, thunder: 1.3, ice: 1.0, dragon: 1.0 },
+    hardenText: 'カブラは羽をたたみ、甲をきつく閉じた！（攻撃が通りにくい・整える好機）',
+    parts: {
+      horn: { name: '角', x: 28, y: 30, hpRatio: 0.16, z: { cut: 1.1, blunt: 1.3, pierce: 1.0, shot: 1.1 }, onBreak: { down: 2, disable: ['act_m11_scoop'], text: '大角が根元から折れた！ ひっくり返った。' } },
+      shell: { name: '甲', x: 60, y: 30, hpRatio: 0.2, z: { cut: 0.8, blunt: 1.1, pierce: 0.8, shot: 0.8 }, onBreak: { down: 1, disable: ['act_m11_shell'], text: '甲が割れた！ もう閉じこもれないようだ。' } },
+      wings: { name: '羽', x: 70, y: 50, hpRatio: 0.12, z: { cut: 1.3, blunt: 0.9, pierce: 1.1, shot: 1.3 }, onBreak: { down: 1, disable: ['act_m11_fly'], ground: true, text: '羽を裂いた！ 飛べなくなった。' } },
+    },
+    acts: [
+      { id: 'act_m11_scoop', name: '角のすくい上げ', w: 3, power: pw(26), weight: 3, reach: ['near'], tell: '頭を低くし、角を地面すれすれに構えた ─ すくい上げの予兆' },
+      { id: 'act_m11_ram', name: '突進', w: 2, power: pw(32), weight: 3, unguardable: true, reach: ['near', 'mid', 'far'], moveTo: 'near', tell: '脚をすり合わせ、羽を震わせた ─ 突進の予兆', fatigue: 15 },
+      { id: 'act_m11_stomp', name: '脚の踏みつけ', w: 2, power: pw(20), weight: 2, wide: true, reach: ['near'], tell: '体を持ち上げ、脚を広げた ─ 踏みつけの予兆' },
+      { id: 'act_m11_shell', name: '甲を閉じる', w: 2, harden: 2, tell: '羽をたたみ、身を低くした ─ 甲を閉じる気配' },
+      { id: 'act_m11_fly', name: '飛び上がる', w: 1, move: 'far', takeoff: true, moveText: 'カブラは羽音を立てて飛び上がった！（遠）', tell: '甲を開き、羽を広げた ─ 飛び上がる気配' },
+      { id: 'act_m11_dive', name: '急降下', w: 3, power: pw(30), weight: 3, reach: ['near', 'mid', 'far'], air: true, lands: true, moveTo: 'near', tell: '上空で角をこちらへ向けた ─ 急降下の予兆' },
+      { id: 'act_m11_land', name: '着地', w: 1, move: 'mid', air: true, land: true, moveText: 'カブラは地面に降りた。（中）', tell: '羽音が小さくなった' },
+      { id: 'act_m11_idle', name: '様子見', w: 1, idle: true },
+    ],
+    idleText: ['角をゆっくり左右に振っている。', '甲をきしませ、低く鳴いた。'],
+    adaptSpeed: 0.9, ailRes: { poison: 1.2, paralysis: 0.9, sleep: 1.0, bleed: 1.4, stun: 0.9 },
+    flee: { hpBelow: 0.22, chance: 0.25, once: true, text: 'カブラは羽音を残して飛び去った！' },
+    signs: sign('m11', '甲のあちこちが欠けている。', '羽がうまく開かず、動きが鈍い。'),
+    capture: { hpBelow: 0.25, text: '甲を閉じる力もなく、ひっくり返りかけている。（捕まえられそうだ）' },
+    rewards: rewards('m11', { horn: 'mat_m11_c', shell: 'mat_m11_a', wings: 'mat_m11_b' }),
+    observe: { dawn: '朽ち木の中へ戻っていく、大きな甲が見えた。', day: '朽ち木の中で眠っているらしい。', dusk: '湧き水に飛んできて、樹液を吸っている。', night: '角で枝を払いながら、窪地を歩き回っている。' },
+  },
+  {
+    id: 'mon_m12', name: 'ミズチ', alias: '沼の大蛇', art: 'mon.m12', hp: 2200, startRange: 'mid', ...common,
+    lore: { kind: '蛇竜・湿原の水の主', habits: '沈み橋の湿原の、葦の茂みと澄んだ溜まりを行き来する。朝と夕に水から上がって体を温める。',
+      ecology: '長い体で遠くまで届く。毒の牙で弱らせ、体を巻きつけて締め上げる。水に潜ると離れた所に顔を出す。',
+      tips: '尾の鞭は遠くまで届く。巻きつかれると動けない。雷の力がよく効く。', rage: '尾を傷つけられると気が立つ。' },
+    body: { cut: 1.1, blunt: 0.9, pierce: 1.0, shot: 1.0 }, elem: { fire: 0.9, water: 0.6, thunder: 1.3, ice: 1.0, dragon: 1.0 },
+    parts: {
+      head: { name: '頭', x: 30, y: 26, hpRatio: 0.15, z: { cut: 1.25, blunt: 1.3, pierce: 1.2, shot: 1.25 }, onBreak: { down: 1, disable: ['act_m12_fang'], text: '毒牙を折った！' } },
+      coils: { name: '胴', x: 55, y: 60, hpRatio: 0.2, z: { cut: 1.2, blunt: 0.9, pierce: 1.0, shot: 1.0 }, onBreak: { down: 1, disable: ['act_m12_coil'], text: '胴の鱗を大きく裂いた！ 巻きつけなくなった。' } },
+      tail: { name: '尾', x: 86, y: 70, hpRatio: 0.13, z: { cut: 1.3, blunt: 0.9, pierce: 1.0, shot: 1.0 }, onBreak: { down: 1, disable: ['act_m12_whip'], text: '尾を断ち切った！' } },
+    },
+    acts: [
+      { id: 'act_m12_fang', name: '毒牙', w: 3, power: pw(20), weight: 1, reach: ['near', 'mid'], ail: 'poison', moveTo: 'near', tell: '鎌首をもたげ、口を開いた ─ 毒牙の予兆' },
+      { id: 'act_m12_whip', name: '尾の鞭', w: 2, power: pw(22), weight: 2, reach: ['mid', 'far'], tell: '尾を大きくしならせた ─ 尾の鞭の予兆（遠くまで届く）' },
+      { id: 'act_m12_coil', name: '巻きつき', w: 2, power: pw(26), weight: 2, reach: ['near'], ail: 'paralysis', tell: '体をとぐろに巻き、間合いを詰めてくる ─ 巻きつきの予兆（つかまると動けない）' },
+      { id: 'act_m12_spray', name: '水の噴き出し', w: 2, power: pw(18), weight: 1, wide: true, element: 'water', reach: ['mid', 'far'], tell: '喉を大きくふくらませた ─ 噴き出しの予兆' },
+      { id: 'act_m12_dive', name: '潜水', w: 0.5, move: 'far', moveText: 'ミズチは水に潜り、離れた所に顔を出した。（遠）', tell: '体を水面すれすれまで低くした' },
+      { id: 'act_m12_sweep', name: '薙ぎ払い', w: 2, power: pw(28), weight: 3, wide: true, reach: ['near', 'mid'], moveTo: 'near', tell: '長い体を大きくくねらせた ─ 薙ぎ払いの予兆' },
+      { id: 'act_m12_frenzy', name: '大渦', w: 2, power: pw(32), weight: 2, wide: true, element: 'water', reach: ['near', 'mid', 'far'], rageOnly: true, tell: '辺りの水が渦を巻き始めた ─ 大渦の予兆', fatigue: 18 },
+      { id: 'act_m12_idle', name: '様子見', w: 1, idle: true },
+    ],
+    idleText: ['舌をちろちろと出し入れしている。', '鎌首をもたげ、こちらを見つめている。'],
+    adaptSpeed: 1.2, ailRes: { poison: 2.0, paralysis: 1.0, sleep: 0.9, bleed: 1.0, stun: 1.0 },
+    flee: { hpBelow: 0.22, chance: 0.3, once: true, text: 'ミズチは水の中へ消えた！' },
+    signs: sign('m12', '鱗があちこちはがれている。', '鎌首をもたげる力もなく、水に体を浸している。'),
+    capture: { hpBelow: 0.25, text: 'とぐろを巻くこともできず、ぐったりしている。（捕まえられそうだ）' },
+    rewards: rewards('m12', { head: 'mat_m12_c', coils: 'mat_m12_a', tail: 'mat_m12_b' }),
+    observe: { dawn: '溜まりの岸で、体を温めている。', day: '水の中を、長い影がゆっくり泳いでいる。', dusk: '葦の茂みで、獲物を待ち伏せている。', night: '水面に頭だけ出して、じっとしている。' },
+  },
+];
+for (const m of LOW2_MONSTERS) m.acts = m.acts.map(a => (a.power ? { ...a, power: Math.round(a.power * (TUNE[m.id] ?? 1)) } : a));

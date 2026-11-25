@@ -1,0 +1,44 @@
+/* 狩人の研究ノート（攻略・研究サイト・60）：紙の研究記録の見た目 */
+@font-face { font-family: "BB Mincho"; src: url("../fonts/ShipporiMinchoB1-Medium.woff2") format("woff2"); font-weight: 500; font-display: swap; }
+@font-face { font-family: "BB Mincho"; src: url("../fonts/ShipporiMinchoB1-Bold.woff2") format("woff2"); font-weight: 700; font-display: swap; }
+@font-face { font-family: "BB Latin"; src: url("../fonts/CormorantGaramond-Variable.woff2") format("woff2"); font-weight: 300 700; font-display: swap; }
+:root {
+  --paper: #efe2c4; --paper-2: #e4d3ad; --ink: #2d2014; --ink-sub: #6a5236; --rule: #b59a6e; --accent: #7a3e1d; --teal: #2f6f68;
+  --desk: #2a1d12; --mincho: "BB Mincho", "Hiragino Mincho ProN", "Yu Mincho", serif;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html, body { background: var(--desk); color: var(--ink); font-family: var(--mincho); }
+body { min-height: 100dvh; padding: max(12px, env(safe-area-inset-top)) 12px max(16px, env(safe-area-inset-bottom)); }
+.note-book { max-width: 860px; margin: 0 auto; padding: 18px 16px 24px; border-radius: 6px;
+  background: repeating-linear-gradient(transparent 0 31px, #b59a6e33 31px 32px), radial-gradient(ellipse at 30% 0%, var(--paper), var(--paper-2));
+  box-shadow: 0 0 0 1px #00000040, 0 18px 40px #000a, inset 0 0 60px #8a6a3e55; }
+.nb-head { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: flex-end; gap: 12px; border-bottom: 2px solid var(--rule); padding-bottom: 10px; }
+.nb-title small { font-family: "BB Latin", serif; letter-spacing: .3em; color: var(--teal); font-size: 11px; font-weight: 700; }
+.nb-title h1 { font-size: 24px; letter-spacing: .2em; font-weight: 700; }
+.nb-who { font-size: 12px; color: var(--ink-sub); margin-top: 2px; }
+.nb-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.nb-btn { display: inline-flex; align-items: center; min-height: 44px; padding: 0 14px; border: 1px solid var(--rule); border-radius: 3px; background: #fff6; color: var(--ink); font: inherit; font-size: 13px; text-decoration: none; cursor: pointer; }
+.nb-search { margin: 12px 0 8px; }
+.nb-search input { width: 100%; min-height: 44px; padding: 8px 12px; font: inherit; font-size: 15px; border: 1px solid var(--rule); border-radius: 3px; background: #fffaf0; color: var(--ink); }
+.nb-tabs { display: flex; flex-wrap: wrap; gap: 6px; margin: 6px 0 12px; }
+.nb-tab { min-height: 40px; padding: 4px 12px; border: 1px solid var(--rule); border-radius: 18px; background: #fff5; font: inherit; font-size: 13px; color: var(--ink); cursor: pointer; }
+.nb-tab small { margin-left: 6px; color: var(--ink-sub); font-size: 11px; }
+.nb-tab.on { background: var(--accent); border-color: var(--accent); color: #fff3e0; } .nb-tab.on small { color: #f3d9b8; }
+.nb-body { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 12px; }
+.nb-card { padding: 12px 14px; background: #fffaf088; border: 1px solid #b59a6e99; border-radius: 3px; box-shadow: 2px 3px 0 #0000000f; }
+.nb-card h2 { font-size: 17px; letter-spacing: .08em; border-bottom: 1px dashed var(--rule); padding-bottom: 4px; margin-bottom: 6px; }
+.nb-card h2 small { display: block; font-size: 11px; font-weight: 500; color: var(--ink-sub); letter-spacing: .02em; }
+.nb-card ul { list-style: none; display: flex; flex-direction: column; gap: 4px; font-size: 13px; line-height: 1.6; }
+.nb-card li::before { content: "・"; color: var(--accent); }
+.nb-sec { font-size: 11px; color: var(--teal); letter-spacing: .2em; }
+.nb-art { display: flex; justify-content: center; margin: 4px 0 8px; }
+.nb-art img { max-width: 100%; max-height: 160px; filter: sepia(.35) contrast(1.05) drop-shadow(1px 2px 0 #0002); }
+.nb-art.silhouette img { filter: brightness(0) opacity(.6); }
+.spoil { margin-top: 8px; border-top: 1px solid #b59a6e66; padding-top: 6px; }
+.spoil summary { cursor: pointer; font-size: 13px; color: var(--accent); min-height: 32px; display: flex; align-items: center; }
+.spoil.deep summary { color: #5a2a6a; }
+.spoil ul { margin-top: 4px; }
+.nb-locked { margin-top: 6px; font-size: 12px; color: var(--ink-sub); opacity: .8; }
+.nb-empty { grid-column: 1 / -1; font-size: 14px; color: var(--ink-sub); line-height: 1.8; padding: 12px 0; }
+.nb-foot { margin-top: 16px; font-size: 11px; color: var(--ink-sub); text-align: center; }
+@media (max-width: 420px) { .nb-title h1 { font-size: 20px; } .nb-body { grid-template-columns: 1fr; } }

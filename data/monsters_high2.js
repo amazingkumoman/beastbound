@@ -1,0 +1,132 @@
+// 【ネタバレ注意】上位に足す大型4種（第13段階・80 の2回目）。設計は docs/spec/secret/追加の大型.md。
+// 報告・コミットの説明では、ここの中身に触れないこと（D-29）。新しい決まりは使わず、今ある決まりの組み合わせで個性を出す。
+const U = Number(globalThis.process?.env?.H2_POW || 4.0); // 強さの倍率（試し打ちで調整・上位の大型と同じ考え方）
+const pw = n => Math.round(n * U);
+const sign = (id, a, b) => [{ id: `sg_${id}_1`, when: { hpBelow: 0.6 }, text: a }, { id: `sg_${id}_2`, when: { hpBelow: 0.3 }, text: b }];
+const common = { rage: { mult: 1.25, turns: [4, 6], damageGain: 150, breakGain: 25, adaptGain: 10 }, fatigue: { threshold: 70, turns: [2, 3], recover: 40, mult: 0.8, text: '息が荒く、動きが重い。' } };
+const rewards = (k, parts) => ({
+  hunt: [{ id: `mat_${k}_a`, w: 40 }, { id: `mat_${k}_b`, w: 22 }, { id: `mat_${k}_c`, w: 18 }, { id: `mat_${k}_d`, w: 10 }, { id: `mat_${k}_e`, w: 10 }],
+  capture: [{ id: `mat_${k}_a`, w: 34 }, { id: `mat_${k}_b`, w: 18 }, { id: `mat_${k}_c`, w: 18 }, { id: `mat_${k}_d`, w: 15 }, { id: `mat_${k}_e`, w: 15 }],
+  parts,
+});
+
+const TUNE = { mon_m13: 0.85, mon_m14: 1.3, mon_m15: 1.3, mon_m16: 1.15 }; // 種ごとの調整（試し打ち）
+export const HIGH2_MONSTERS = [
+  {
+    id: 'mon_m13', name: 'フウガ', alias: '嵐呼びの大怪鳥', art: 'mon.m13', hp: 3400, startRange: 'mid', rank: 'high', ...common,
+    lore: { kind: '鳥獣・尾根の風の主', habits: '凍てつく尾根の風の峠に巣をかけ、強い風に乗って獲物を探す。朝と夕に峠を越えて渡っていく。',
+      ecology: '大きな翼で突風を起こし、相手を吹き飛ばして間合いを離す。地上では太い脚で蹴る。風の弱い夜は動きが鈍い。',
+      tips: '突風で離されたら、すぐに詰め直すか、遠くから届く技で応じる。氷の力がよく効く。', rage: '翼を傷つけられると気が立つ。' },
+    body: { cut: 1.0, blunt: 1.0, pierce: 1.1, shot: 1.1 }, elem: { fire: 1.0, water: 1.0, thunder: 0.8, ice: 1.3, dragon: 1.0 },
+    parts: {
+      head: { name: '頭', x: 36, y: 18, hpRatio: 0.14, z: { cut: 1.2, blunt: 1.3, pierce: 1.2, shot: 1.25 }, onBreak: { down: 1, text: 'くちばしを欠いた！ よろめいた。' } },
+      wings: { name: '翼', x: 18, y: 40, hpRatio: 0.2, z: { cut: 1.3, blunt: 0.9, pierce: 1.1, shot: 1.3 }, onBreak: { down: 2, disable: ['act_m13_gust', 'act_m13_fly'], ground: true, text: '風切り羽をまとめて断った！ もう風を起こせない。' } },
+      legs: { name: '脚', x: 55, y: 80, hpRatio: 0.16, z: { cut: 1.1, blunt: 1.1, pierce: 1.0, shot: 0.9 }, onBreak: { down: 1, disable: ['act_m13_kick'], text: '脚を痛めた！ 蹴りができなくなった。' } },
+    },
+    acts: [
+      { id: 'act_m13_peck', name: 'つつき', w: 3, power: pw(30), weight: 2, reach: ['near'], tell: '首を大きく引いた ─ つつきの予兆' },
+      { id: 'act_m13_kick', name: '蹴り上げ', w: 2, power: pw(36), weight: 3, reach: ['near'], tell: '片脚を高く持ち上げた ─ 蹴りの予兆' },
+      { id: 'act_m13_gust', name: '突風', w: 2, power: pw(22), weight: 2, wide: true, reach: ['near', 'mid'], moveTo: 'far', tell: '翼を大きく広げ、身をそらした ─ 突風の予兆（吹き飛ばされる）' },
+      { id: 'act_m13_blade', name: '風の刃', w: 2, power: pw(30), weight: 2, reach: ['mid', 'far'], tell: '翼を鋭く打ち合わせた ─ 風の刃の予兆' },
+      { id: 'act_m13_fly', name: '舞い上がる', w: 1, move: 'far', takeoff: true, moveText: 'フウガは風に乗って舞い上がった！（遠）', tell: '風上を向き、翼を半分開いた ─ 舞い上がる気配' },
+      { id: 'act_m13_swoop', name: '急降下', w: 3, power: pw(40), weight: 3, unguardable: true, reach: ['near', 'mid', 'far'], air: true, lands: true, moveTo: 'near', tell: '上空で翼をたたんだ ─ 急降下の予兆', fatigue: 15 },
+      { id: 'act_m13_storm', name: '大嵐', w: 2, power: pw(44), weight: 3, wide: true, reach: ['near', 'mid', 'far'], rageOnly: true, tell: '翼を何度も打ち鳴らし、雪が渦を巻きはじめた ─ 大嵐の予兆', fatigue: 18 },
+      { id: 'act_m13_idle', name: '様子見', w: 1, idle: true },
+    ],
+    idleText: ['甲高く鳴き、首をかしげた。', '風の向きを確かめるように、翼を少し広げた。'],
+    adaptSpeed: 1.0, ailRes: { poison: 1.0, paralysis: 1.0, sleep: 1.0, bleed: 1.0, stun: 1.0 },
+    flee: { hpBelow: 0.25, chance: 0.3, once: true, text: 'フウガは風に乗って峠の向こうへ逃げた！' },
+    signs: sign('m13', '羽があちこち抜け落ちている。', '羽ばたきが弱く、風に乗れないでいる。'),
+    capture: { hpBelow: 0.25, text: '翼を引きずり、うずくまっている。（捕まえられそうだ）' },
+    rewards: rewards('m13', { head: 'mat_m13_c', wings: 'mat_m13_b', legs: 'mat_m13_a' }),
+    observe: { dawn: '峠を越えて、大きな影が渡っていく。', day: '風の峠の岩の上で、羽を整えている。', dusk: '強い風に向かって、何度も鳴いている。', night: '巣の中で、翼に頭をうずめている。' },
+  },
+  {
+    id: 'mon_m14', name: 'ラギア', alias: '凍河の魚竜', art: 'mon.m14', hp: 3500, startRange: 'mid', rank: 'high', ...common,
+    lore: { kind: '魚竜・湿原の深みの主', habits: '沈み橋の湿原の深い水路を泳ぎ回る。冬の間は凍河から下ってくるという。',
+      ecology: '水の中では刃も矢も届かない。顔を出す前には水面が泡立つ。水を吐いて遠くの相手も狙う。',
+      tips: '潜ったら泡の予兆を待つ。雷の力がよく効く。', rage: 'ひれを傷つけられると気が立つ。' },
+    body: { cut: 1.1, blunt: 0.9, pierce: 1.0, shot: 1.0 }, elem: { fire: 1.0, water: 0.4, thunder: 1.3, ice: 0.8, dragon: 1.0 },
+    parts: {
+      head: { name: '頭', x: 30, y: 30, hpRatio: 0.15, z: { cut: 1.2, blunt: 1.3, pierce: 1.2, shot: 1.2 }, onBreak: { down: 1, disable: ['act_m14_jet'], text: '口元の水袋を破った！ 水を吐けなくなった。' } },
+      fins: { name: '背びれ', x: 55, y: 16, hpRatio: 0.16, z: { cut: 1.3, blunt: 0.9, pierce: 1.1, shot: 1.2 }, onBreak: { down: 1, disable: ['act_m14_dive'], text: '背びれを裂いた！ 潜れなくなった。' } },
+      tail: { name: '尾びれ', x: 86, y: 60, hpRatio: 0.13, z: { cut: 1.3, blunt: 0.9, pierce: 1.0, shot: 1.0 }, onBreak: { down: 1, disable: ['act_m14_tail'], text: '尾びれを断ち切った！' } },
+    },
+    acts: [
+      { id: 'act_m14_bite', name: '噛みつき', w: 3, power: pw(32), weight: 2, reach: ['near'], tell: '大きな口を開け、牙を見せた ─ 噛みつきの予兆' },
+      { id: 'act_m14_tail', name: '尾びれ打ち', w: 2, power: pw(30), weight: 2, wide: true, reach: ['near', 'mid'], tell: '尾を水面から高く上げた ─ 尾びれ打ちの予兆' },
+      { id: 'act_m14_jet', name: '水の砲撃', w: 2, power: pw(28), weight: 2, element: 'water', reach: ['mid', 'far'], tell: '喉がふくらみ、水が渦を巻いた ─ 砲撃の予兆' },
+      { id: 'act_m14_dive', name: '潜る', w: 2, move: 'mid', burrow: true, moveText: 'ラギアは水の中へ潜った！（攻撃が届かない）', tell: '体を大きくしならせ、水面を打った ─ 潜る気配' },
+      { id: 'act_m14_breach', name: '跳ね上がり', w: 3, power: pw(40), weight: 3, reach: ['near', 'mid', 'far'], under: true, surface: true, moveTo: 'near', tell: '足元の水面が激しく泡立ってきた ─ 跳ね上がりの予兆', fatigue: 15 },
+      { id: 'act_m14_wake', name: '水の渦', w: 1, power: pw(18), weight: 1, wide: true, reach: ['near', 'mid', 'far'], under: true, tell: '水の下で何かがぐるぐる回っている' },
+      { id: 'act_m14_flood', name: '大波', w: 2, power: pw(44), weight: 3, wide: true, element: 'water', reach: ['near', 'mid', 'far'], rageOnly: true, tell: '水路の水が大きく盛り上がった ─ 大波の予兆', fatigue: 18 },
+      { id: 'act_m14_idle', name: '様子見', w: 1, idle: true },
+    ],
+    idleText: ['水面から目だけ出して、こちらを見ている。', '尾で水を打ち、しぶきを上げた。'],
+    adaptSpeed: 1.0, ailRes: { poison: 1.0, paralysis: 0.8, sleep: 1.0, bleed: 1.0, stun: 1.1 },
+    flee: { hpBelow: 0.25, chance: 0.3, once: true, text: 'ラギアは深い水路の奥へ消えた！' },
+    signs: sign('m14', '鱗があちこちはがれている。', '水面に腹を見せかけている。'),
+    capture: { hpBelow: 0.25, text: '潜る力もなく、浅瀬で体を横たえている。（捕まえられそうだ）' },
+    rewards: rewards('m14', { head: 'mat_m14_c', fins: 'mat_m14_b', tail: 'mat_m14_a' }),
+    observe: { dawn: '深い水路で、長い影がゆっくり動いている。', day: '水面から背びれだけを出して泳いでいる。', dusk: '浅瀬に乗り上げ、体を冷やしている。', night: '水路の底で、じっと動かない。' },
+  },
+  {
+    id: 'mon_m15', name: 'アラクネ', alias: '廃都の大蜘蛛', art: 'mon.m15', hp: 3300, startRange: 'mid', rank: 'high', ...common,
+    lore: { kind: '節足獣・廃都の巣の主', habits: '眠れる都の跡の崩れた塔に巣を張り、夜に獲物を待ち伏せる。昼は天井の高い所に潜む。',
+      ecology: '糸で相手を絡め取り（動けなくなる）、毒の牙で弱らせる。天井にぶら下がると近くからは届かない。賢く、同じ攻め方には慣れやすい。',
+      tips: '糸に絡まれたら気付け薬。天井にいる間は遠くから届く攻撃で。火の力がよく効く。', rage: '脚を傷つけられると気が立つ。' },
+    body: { cut: 1.0, blunt: 1.1, pierce: 1.0, shot: 1.0 }, elem: { fire: 1.3, water: 1.0, thunder: 1.0, ice: 0.9, dragon: 1.0 },
+    parts: {
+      head: { name: '頭', x: 34, y: 34, hpRatio: 0.15, z: { cut: 1.2, blunt: 1.3, pierce: 1.2, shot: 1.2 }, onBreak: { down: 1, disable: ['act_m15_fang'], text: '毒牙を折った！' } },
+      legs: { name: '脚', x: 20, y: 70, hpRatio: 0.2, z: { cut: 1.3, blunt: 1.1, pierce: 1.0, shot: 1.0 }, onBreak: { down: 2, disable: ['act_m15_hang'], text: '脚を何本か断った！ もう天井には上がれない。' } },
+      abdomen: { name: '腹', x: 70, y: 50, hpRatio: 0.16, z: { cut: 1.1, blunt: 1.2, pierce: 1.2, shot: 1.1 }, onBreak: { down: 1, disable: ['act_m15_web'], text: '糸袋を裂いた！ 糸を吐けなくなった。' } },
+    },
+    acts: [
+      { id: 'act_m15_fang', name: '毒牙', w: 3, power: pw(28), weight: 2, reach: ['near'], ail: 'poison', tell: '前脚を広げ、牙を鳴らした ─ 毒牙の予兆' },
+      { id: 'act_m15_slash', name: '脚の薙ぎ', w: 2, power: pw(30), weight: 2, wide: true, reach: ['near', 'mid'], tell: '体を沈め、脚を大きく広げた ─ 薙ぎの予兆' },
+      { id: 'act_m15_web', name: '糸吐き', w: 2, power: pw(18), weight: 1, reach: ['mid', 'far'], ail: 'paralysis', moveTo: 'near', tell: '腹を持ち上げ、糸袋を震わせた ─ 糸の予兆（絡まると動けない）' },
+      { id: 'act_m15_hang', name: '天井へ', w: 2, move: 'far', takeoff: true, moveText: 'アラクネは糸を伝って天井へ上がった！（遠）', tell: '上を見上げ、糸を天井へ放った ─ 上がる気配' },
+      { id: 'act_m15_drop', name: '落下', w: 3, power: pw(38), weight: 3, unguardable: true, reach: ['near', 'mid', 'far'], air: true, lands: true, moveTo: 'near', tell: '天井でぴたりと動きを止めた ─ 落下の予兆', fatigue: 15 },
+      { id: 'act_m15_rain', name: '毒の雨', w: 2, power: pw(22), weight: 1, wide: true, reach: ['mid', 'far'], air: true, ail: 'poison', tell: '天井から毒のしずくを垂らしはじめた ─ 毒の雨の予兆' },
+      { id: 'act_m15_read', name: '待ち伏せ', w: 2, power: pw(36), weight: 2, reach: ['near', 'mid'], stance: true, stanceIdle: 'アラクネは身を低くしたまま、動かない。', tell: '脚をたたみ、じっとこちらの動きを見ている ─ 大振りを見切る構え' },
+      { id: 'act_m15_idle', name: '様子見', w: 1, idle: true },
+    ],
+    idleText: ['脚を一本ずつ、ゆっくり動かしている。', '糸を張り直している。'],
+    adaptSpeed: 1.4, ailRes: { poison: 2.0, paralysis: 1.0, sleep: 0.9, bleed: 1.0, stun: 1.0 },
+    flee: { hpBelow: 0.22, chance: 0.25, once: true, text: 'アラクネは糸を伝って、塔の上へ逃げた！' },
+    signs: sign('m15', '脚が何本か、うまく動いていない。', '糸を吐く力もなく、体を丸めている。'),
+    capture: { hpBelow: 0.25, text: '巣に戻ることもできず、脚を縮めている。（捕まえられそうだ）' },
+    rewards: rewards('m15', { head: 'mat_m15_c', legs: 'mat_m15_a', abdomen: 'mat_m15_b' }),
+    observe: { dawn: '塔の天井の暗がりに、大きな影がぶら下がっている。', day: '巣の真ん中で、じっと動かない。', dusk: '糸を張り直しながら、獲物を待っている。', night: '大通りまで下りてきて、獲物を探している。' },
+  },
+  {
+    id: 'mon_m16', name: 'ミコラ', alias: '胞子纏いの菌獣', art: 'mon.m16', hp: 3700, startRange: 'mid', rank: 'high', ...common,
+    lore: { kind: '菌類と獣の合わさったもの・森の奥の古木', habits: '古塔の森の奥、苔の石段の古木と一体になって暮らす。夜になると動き出す。',
+      ecology: '体じゅうに菌の傘をまとい、危ないと感じると傘を閉じて身を固める。胞子をためて一気に放つ前には、傘が大きく膨らむ。',
+      tips: '傘を閉じたら整える好機。膨らんだら強く打って止める。龍の力がよく効く。', rage: '傘を壊されると気が立つ。' },
+    body: { cut: 1.1, blunt: 1.0, pierce: 1.0, shot: 1.0 }, elem: { fire: 1.1, water: 0.8, thunder: 1.0, ice: 1.0, dragon: 1.3 },
+    hardenText: 'ミコラは菌の傘を閉じ、木のように固まった！（攻撃が通りにくい・整える好機）',
+    parts: {
+      caps: { name: '菌の傘', x: 40, y: 16, hpRatio: 0.18, z: { cut: 1.3, blunt: 1.1, pierce: 1.1, shot: 1.25 }, onBreak: { down: 1, disable: ['act_m16_burst'], text: '菌の傘を砕いた！ もう胞子をためられない。' } },
+      arms: { name: '枝の腕', x: 20, y: 50, hpRatio: 0.18, z: { cut: 1.25, blunt: 1.0, pierce: 1.0, shot: 0.9 }, onBreak: { down: 1, disable: ['act_m16_lash'], text: '枝の腕を断った！' } },
+      core: { name: '根の芯', x: 55, y: 70, hpRatio: 0.15, z: { cut: 1.0, blunt: 1.3, pierce: 1.2, shot: 1.0 }, onBreak: { down: 2, disable: ['act_m16_bark'], text: '根の芯を割った！ 崩れ落ちた。もう固まれない。' } },
+    },
+    acts: [
+      { id: 'act_m16_lash', name: '枝の鞭', w: 3, power: pw(30), weight: 2, reach: ['near', 'mid'], tell: '枝の腕を大きく後ろへ引いた ─ 鞭の予兆' },
+      { id: 'act_m16_stomp', name: '根の踏みつけ', w: 2, power: pw(34), weight: 3, wide: true, reach: ['near'], tell: '根を地面から引き抜いた ─ 踏みつけの予兆' },
+      { id: 'act_m16_spore', name: '胞子', w: 2, power: pw(18), weight: 1, wide: true, reach: ['near', 'mid'], ail: 'paralysis', tell: '傘の下から粉がこぼれ始めた ─ 胞子の予兆（しびれる）' },
+      { id: 'act_m16_bark', name: '傘を閉じる', w: 2, harden: 2, tell: '菌の傘がゆっくりしぼみ始めた ─ 固まる気配' },
+      { id: 'act_m16_burst', name: '胞子の嵐', w: 2, power: pw(56), weight: 3, wide: true, ail: 'poison', reach: ['near', 'mid', 'far'], windup: 2, interrupt: 0.06, chargeText: 'ミコラの傘が大きく膨らんでいく……', interruptText: '膨らんだ傘を打ち破った！ 胞子が散り、ミコラは崩れた。', tell: '傘がはちきれそうに膨らんでいる ─ 胞子の嵐をためている（強く打てば止められる）', fatigue: 18 },
+      { id: 'act_m16_root', name: '根の突き上げ', w: 1, power: pw(32), weight: 2, reach: ['mid', 'far'], moveTo: 'near', tell: '足元の地面に細い根が走った ─ 突き上げの予兆' },
+      { id: 'act_m16_idle', name: '様子見', w: 1, idle: true },
+    ],
+    idleText: ['傘をゆらゆら揺らしている。', '根で地面の水を吸っている。'],
+    adaptSpeed: 0.8, ailRes: { poison: 2.0, paralysis: 1.2, sleep: 1.5, bleed: 1.3, stun: 1.0 },
+    flee: { hpBelow: 0.22, chance: 0.2, once: true, text: 'ミコラは古木の中へ沈み込んでいった！' },
+    signs: sign('m16', '傘のあちこちが枯れている。', '枝がしおれ、根が地面から浮いている。'),
+    capture: { hpBelow: 0.25, text: '傘を閉じる力もなく、古木にもたれている。（捕まえられそうだ）' },
+    rewards: rewards('m16', { caps: 'mat_m16_b', arms: 'mat_m16_a', core: 'mat_m16_c' }),
+    observe: { dawn: '古木に寄り添い、動かない。', day: '古木そのもののように、じっとしている。', dusk: '傘がほのかに光りはじめた。', night: '根を引き抜き、石段をゆっくり歩いている。' },
+  },
+];
+for (const m of HIGH2_MONSTERS) m.acts = m.acts.map(a => (a.power ? { ...a, power: Math.round(a.power * (TUNE[m.id] ?? 1)) } : a));
