@@ -5,6 +5,7 @@ import { createStore } from './core/store.js';
 import { createSaveManager, browserStorage } from './save/saveManager.js';
 import { createScreens } from './ui/screens.js';
 import { toast } from './ui/components.js';
+import { installZoom } from './ui/zoom.js';
 import { titleScreen } from './ui/screens/title.js';
 import { nameScreen } from './ui/screens/nameEntry.js';
 import { introScreen, sceneScreen } from './ui/screens/intro.js';
@@ -27,7 +28,7 @@ import { exploreScreen, huntResultScreen } from './ui/screens/explore.js';
 const BGM_OF = { battle: 'battle', explore: 'explore', prep: 'explore' };
 
 // 画像がまだないことが決まっているキー（30 グラフィック仕様書：鎖刃は新しく作る）
-const ALLOW_MISSING_ART = ['wpn.chainblade'];
+const ALLOW_MISSING_ART = [];
 
 function boot() {
   const problems = validateMasterData(DATA, { manifest: window.ART_MANIFEST, allowMissingArt: ALLOW_MISSING_ART });
@@ -41,6 +42,7 @@ function boot() {
   // 読み込んだ・新しく始めた記録に、装備の形（はじめの6種の武器など）を整える
   store.subscribe((st, why) => { if (st && ['load', 'new', 'import', 'restore'].includes(why)) { normalizeHunt(normalize(st)); applySettings(st); } });
   sound.unlockOnGesture();
+  installZoom(); // 絵を押す・長押しで大きく見る
   applySettings(null);
   // ボタンを押した音
   document.addEventListener('click', e => { if (e.target.closest('.btn:not(:disabled), .card.pick, .pt, .step')) sound.sfx('tap'); });

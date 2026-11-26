@@ -4,6 +4,7 @@ import { esc, toast } from '../components.js';
 import { find, computeGear, equipWeapon, equipArmor, setDeco, setTechs, decoFree, slotFits, battleWeapon } from '../../systems/gear/gear.js';
 import { WEAPON_KINDS, TECH_SLOTS, masteryLevel, unlockedTechs } from '../../../data/weapons.js';
 import { ELEMENTS } from '../../../data/skills.js';
+import { WEAPON_TYPES } from '../../../data/index.js';
 import { learnStatus, learnTech, isLearned } from '../../systems/gear/learn.js';
 
 /** 覚える素材の書き方（まだ手に入れたことのない素材は名前を出さない） */
@@ -18,6 +19,16 @@ function learnCost(save, mats) {
 const SLOT_NAME = { s: '小', m: '中', l: '大' };
 const elemName = id => ELEMENTS.find(e => e.id === id)?.name ?? id;
 const ailName = { poison: '毒', paralysis: '麻痺', sleep: '睡眠', bleed: '出血' };
+
+/** 武器の絵のキー：系統ごとの絵があればそれ、なければ種類の絵（強化していく武器は同じ絵） */
+export function weaponArt(node) {
+  const M = window.ART_MANIFEST || {};
+  const m = node.id.match(/^wpn_([a-z]+)_(.+)_([^_]+)$/);
+  const key = m ? (m[2] === 'x' ? `wpn.${m[1]}.x_${m[3]}` : `wpn.${m[1]}.${m[2]}`) : null; // 希少素材の最後の段は素材ごと
+  if (key && M[key]) return key;
+  return WEAPON_TYPES.find(t => t.id === node.kindId)?.art ?? '';
+}
+export const weaponThumb = node => `<span class="arm-thumb">${window.ART?.img(weaponArt(node), 'loading="lazy"') ?? ''}</span>`;
 
 export function weaponLine(node) {
   const k = WEAPON_KINDS[node.kindId];
@@ -54,7 +65,7 @@ export const equipScreen = {
     if (view === 'weapon') {
       return `${head}<div class="paper"><h2>武器を持ちかえる</h2><div class="list">${save.inventory.weapons.map(w => {
         const n = find.weapon(w.nodeId);
-        return `<button class="card pick" data-weapon="${w.uid}" ${w.uid === save.loadout.weaponUid ? 'aria-current="true"' : ''}><span class="t"><b>${esc(n.name)}${w.uid === save.loadout.weaponUid ? '<em>装備中</em>' : ''}</b><small>${esc(weaponLine(n))}</small></span></button>`;
+        return `<button class="card pick" data-weapon="${w.uid}" ${w.uid === save.loadout.weaponUid ? 'aria-current="true"' : ''}>${weaponThumb(n)}<span class="t"><b>${esc(n.name)}${w.uid === save.loadout.weaponUid ? '<em>装備中</em>' : ''}</b><small>${esc(weaponLine(n))}</small></span></button>`;
       }).join('')}</div></div>${foot}`;
     }
     if (view.startsWith('armor:')) {
@@ -100,7 +111,7 @@ export const equipScreen = {
     const techNames = battleWeapon(save).weapon.techs.map(t => t.name).join('・') || 'なし';
     return `${head}<div class="paper">
       <h2>武器</h2>
-      <div class="equip-row"><button class="card pick" data-go="weapon"><span class="t"><b>${esc(wn.name)}</b><small>${esc(weaponLine(wn))}</small></span><span class="go">›</span></button>
+      <div class="equip-row"><button class="card pick" data-go="weapon">${weaponThumb(wn)}<span class="t"><b>${esc(wn.name)}</b><small>${esc(weaponLine(wn))}</small></span><span class="go">›</span></button>
         <div class="slots">${slotsHtml('weapon', g.weaponItem, wn.slots)}</div>
         <button class="card pick" data-go="techs"><span class="t"><b>技</b><small>${esc(techNames)}</small></span><span class="go">›</span></button></div>
       <h2>防具</h2>

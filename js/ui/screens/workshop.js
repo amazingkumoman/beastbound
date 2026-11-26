@@ -5,7 +5,7 @@ import { npcBox, bindNpc } from './intro.js';
 import { CATALOG, find, missing, craftWeapon, upgradeWeapon, craftArmor, upgradeArmor, armorUpgradeCost, armorMaxLevel, craftDeco, weaponTree, WEAPON_KIND_IDS, MONEY } from '../../systems/gear/gear.js';
 import { WEAPON_KINDS } from '../../../data/weapons.js';
 import { ARMOR_MAX_LEVEL, TEST_MATERIAL_GIFT } from '../../../data/testGear.js';
-import { weaponLine } from './equip.js';
+import { weaponLine, weaponThumb } from './equip.js';
 
 const costText = (save, cost) => Object.entries(cost || {}).map(([m, n]) => {
   if (m === MONEY) { const have = save.inventory.money || 0; return `<span class="${have < n ? 'short' : ''}">${n.toLocaleString()}ルク</span>`; } // お金
@@ -40,7 +40,7 @@ export const workshopScreen = {
           const parents = owned.filter(w => w.nodeId === n.parentId);
           const upBtn = n.parentId ? `<button class="btn small" data-up="${n.id}" ${parents.length && !missing(save, n.upgrade).length ? '' : 'disabled'}>強化</button>` : '';
           const mkBtn = n.tier > 0 ? `<button class="btn small" data-make-weapon="${n.id}" ${missing(save, n.craft).length ? 'disabled' : ''}>作る</button>` : '';
-          return `<div class="card tree-node tier${n.depth}"><span class="t"><b>${esc(n.name)}${mine ? `<em>持っている ${mine}</em>` : ''}</b><small>${esc(weaponLine(n))}</small>
+          return `<div class="card tree-node tier${n.depth}">${weaponThumb(n)}<span class="t"><b>${esc(n.name)}${mine ? `<em>持っている ${mine}</em>` : ''}</b><small>${esc(weaponLine(n))}</small>
             ${n.tier > 0 ? `<small>作る：${costText(save, n.craft)}</small><small>強化（${esc(find.weapon(n.parentId).name)}から）：${costText(save, n.upgrade)}</small>` : '<small>はじめから持っている</small>'}</span>
             <span class="acts">${mkBtn}${upBtn}</span></div>`;
         }).join('')}</div>${hiddenNote(tree.length - shown.length)}

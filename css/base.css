@@ -345,3 +345,11 @@ h2.locked { opacity: .5; }
 /* 2026-11-25 追記「特定の時に動くのはいい。常に揺れてるのはやめて」→ ずっと続く動き（予兆の間の揺れ・弱り・疲れの息づかい）だけ止める。
    当たったとき・部位を壊したとき・大技をためている間の動きは残す */
 .mon.wind .mon-body, .mon.weak .mon-body, .mon.tired .mon-body { animation: none !important; }
+
+/* 絵を大きく見る（js/ui/zoom.js） */
+img[data-art] { -webkit-touch-callout: none; }
+.zoom-view { position: absolute; inset: 0; z-index: 70; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px; padding: 16px; background: #000e; cursor: zoom-out; animation: zoomIn .18s ease-out; }
+.zoom-view img { max-width: 100%; max-height: calc(100% - 64px); object-fit: contain; filter: drop-shadow(0 6px 18px #000); }
+.zoom-view p { margin: 0; font-size: 15px; letter-spacing: .08em; color: var(--brass-l); text-align: center; }
+.zoom-view small { font-size: 11px; color: #c9b48a99; }
+@keyframes zoomIn { from { opacity: 0; transform: scale(.96); } to { opacity: 1; transform: none; } }
