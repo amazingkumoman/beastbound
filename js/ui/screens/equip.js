@@ -1,7 +1,7 @@
 // 装備画面（拠点）。22 防具・装飾品仕様書 7章・22b 6章。
 // 武器・防具5部位・装飾品・技をまとめて見て変える。戦闘中は変えられない（D-24）。
 import { esc, toast } from '../components.js';
-import { find, grantText, computeGear, equipWeapon, equipArmor, setDeco, setTechs, decoFree, slotFits, battleWeapon } from '../../systems/gear/gear.js';
+import { find, grantText, uniqueText, computeGear, equipWeapon, equipArmor, setDeco, setTechs, decoFree, slotFits, battleWeapon } from '../../systems/gear/gear.js';
 import { WEAPON_KINDS, TECH_SLOTS, masteryLevel, unlockedTechs } from '../../../data/weapons.js';
 import { ELEMENTS } from '../../../data/skills.js';
 import { WEAPON_TYPES } from '../../../data/index.js';
@@ -42,8 +42,9 @@ function summary(ctx, g) {
   return `
     <div class="stat-row"><span>守り</span><b>${g.def}</b><span>耐性</span><b class="small">${esc(res || 'なし')}</b></div>
     <h3>スキル</h3>${sk ? `<ul class="skill-list">${sk}</ul>` : '<p class="empty">まだない</p>'}
-    <h3>セットボーナス</h3>${g.setBonuses.length ? `<ul class="skill-list">${g.setBonuses.map(b => `<li><b>${esc(b.name)}</b><small>${b.pieces}部位：${esc(grantText(b.grants, true))}になる</small></li>`).join('')}</ul>` : '<p class="empty">なし（同じモンスターの防具を2部位・4部位つけると出る）</p>'}
-    ${g.uniques.length ? `<h3>固有スキル</h3><ul class="skill-list">${g.uniques.map(u => `<li><b>${esc(u.name)}</b><small>${esc(grantText(u.grants, true))}になる</small></li>`).join('')}</ul><p class="note">固有スキル・セットボーナスは、そのスキルをそのLvにする（装備の点でもっと高いときは、高いほう）。</p>` : ''}`;
+    <h3>セットボーナス</h3>${g.setBonuses.length ? `<ul class="skill-list">${g.setBonuses.map(b => `<li><b>${esc(b.name)}</b><small>${b.pieces}部位：${esc(grantText(b.grants))}</small></li>`).join('')}</ul>` : '<p class="empty">なし（同じモンスターの防具を2部位・4部位つけると出る）</p>'}
+    ${g.uniques.length ? `<h3>固有スキル</h3><ul class="skill-list">${g.uniques.map(u => `<li><b>${esc(u.name)}</b><small>${esc(u.text)}</small></li>`).join('')}</ul>` : ''}
+    <p class="note">スキルのLvは、スキル点のLvにセットボーナスを足したもの（いちばん上はLv5。スキルによってはLv3まで）。固有スキルは、その防具だけの特別な効果。</p>`;
 }
 
 function slotsHtml(kind, item, slots) {
@@ -74,7 +75,7 @@ export const equipScreen = {
       const now = save.loadout.armor[part];
       return `${head}<div class="paper"><h2>${esc(ctx.data.ARMOR_PARTS.find(x => x.id === part).name)}</h2><div class="list">
         <button class="card pick" data-armor="" ${!now ? 'aria-current="true"' : ''}><span class="t"><b>なし</b></span></button>
-        ${own.map(a => { const pc = find.armor(a.pieceId); return `<button class="card pick" data-armor="${a.uid}" ${a.uid === now ? 'aria-current="true"' : ''}>${pc.art ? `<span class="arm-thumb">${window.ART.img(pc.art, 'loading="lazy"')}</span>` : ''}<span class="t"><b>${esc(pc.name)} Lv${a.level}${a.uid === now ? '<em>装備中</em>' : ''}</b><small>守り${pc.def + (pc.defPerLevel ?? 2) * (a.level - 1)}・${Object.entries(pc.skills).map(([k, n]) => `${find.skill(k).name}+${n}`).join('・')}${pc.unique ? `・固有：${pc.unique.name}（${grantText(pc.unique.grants)}）` : ''}</small></span></button>`; }).join('')}
+        ${own.map(a => { const pc = find.armor(a.pieceId); return `<button class="card pick" data-armor="${a.uid}" ${a.uid === now ? 'aria-current="true"' : ''}>${pc.art ? `<span class="arm-thumb">${window.ART.img(pc.art, 'loading="lazy"')}</span>` : ''}<span class="t"><b>${esc(pc.name)} Lv${a.level}${a.uid === now ? '<em>装備中</em>' : ''}</b><small>守り${pc.def + (pc.defPerLevel ?? 2) * (a.level - 1)}・${Object.entries(pc.skills).map(([k, n]) => `${find.skill(k).name}+${n}`).join('・')}${pc.unique ? `・固有：${uniqueText(pc)}` : ''}</small></span></button>`; }).join('')}
         ${own.length ? '' : '<p class="empty">この部位の防具を持っていない。工房で作れる。</p>'}</div></div>${foot}`;
     }
     if (view.startsWith('deco:')) {

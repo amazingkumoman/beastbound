@@ -2,7 +2,7 @@
 // 素材は狩り・採取で集める。開発用の「試験用の素材を受け取る」は試験用の装備のためだけ。
 import { esc, toast, DEV } from '../components.js';
 import { npcBox, bindNpc } from './intro.js';
-import { CATALOG, find, grantText, missing, craftWeapon, upgradeWeapon, craftArmor, upgradeArmor, armorUpgradeCost, armorMaxLevel, craftDeco, weaponTree, WEAPON_KIND_IDS, MONEY } from '../../systems/gear/gear.js';
+import { CATALOG, find, uniqueText, missing, craftWeapon, upgradeWeapon, craftArmor, upgradeArmor, armorUpgradeCost, armorMaxLevel, craftDeco, weaponTree, WEAPON_KIND_IDS, MONEY } from '../../systems/gear/gear.js';
 import { WEAPON_KINDS } from '../../../data/weapons.js';
 import { ARMOR_MAX_LEVEL, TEST_MATERIAL_GIFT } from '../../../data/testGear.js';
 import { weaponLine, weaponThumb } from './equip.js';
@@ -48,7 +48,7 @@ export const workshopScreen = {
     } else if (tab === 'armor') {
       const all = CATALOG.armors.filter(pc => !pc.dev);
       const shownA = all.filter(pc => (rankOk(pc) && (pc.gather || knownMon(find.set(pc.setId)?.monsterId))) || save.inventory.armors.some(a => a.pieceId === pc.id)); // 採取の防具は上位が開いたら見える
-      body = `<h2>防具を作る</h2>${shownA.length ? '' : '<p class="empty">大型に出会うと、その素材で作れる防具がわかる。</p>'}<div class="list">${shownA.map(pc => `<div class="card">${armThumb(pc)}<span class="t"><b>${esc(pc.name)}</b><small>守り${pc.def}・${Object.entries(pc.skills).map(([k, n]) => `${find.skill(k).name}+${n}`).join('・')}${pc.unique ? `・固有：${esc(pc.unique.name)}（${esc(grantText(pc.unique.grants))}）` : ''}</small><small>${costText(save, pc.craft)}</small></span><span class="acts"><button class="btn small" data-make-armor="${pc.id}" ${missing(save, pc.craft).length ? 'disabled' : ''}>作る</button></span></div>`).join('')}</div>${hiddenNote(all.length - shownA.length)}
+      body = `<h2>防具を作る</h2>${shownA.length ? '' : '<p class="empty">大型に出会うと、その素材で作れる防具がわかる。</p>'}<div class="list">${shownA.map(pc => `<div class="card">${armThumb(pc)}<span class="t"><b>${esc(pc.name)}</b><small>守り${pc.def}・${Object.entries(pc.skills).map(([k, n]) => `${find.skill(k).name}+${n}`).join('・')}${pc.unique ? `・固有：${esc(uniqueText(pc))}` : ''}</small><small>${costText(save, pc.craft)}</small></span><span class="acts"><button class="btn small" data-make-armor="${pc.id}" ${missing(save, pc.craft).length ? 'disabled' : ''}>作る</button></span></div>`).join('')}</div>${hiddenNote(all.length - shownA.length)}
         <h2>手持ちの防具を強化</h2>${save.inventory.armors.length ? `<div class="list">${save.inventory.armors.map(a => { const pc = find.armor(a.pieceId); const max = a.level >= armorMaxLevel(pc); const c = armorUpgradeCost(pc, a.level); return `<div class="card">${armThumb(pc)}<span class="t"><b>${esc(pc.name)} Lv${a.level}${max ? '<em>最大</em>' : ''}</b><small>${max ? 'これ以上強くできない' : `Lv${a.level + 1}へ（守り+${pc.defPerLevel ?? 2}）：${costText(save, c)}`}</small></span><span class="acts"><button class="btn small" data-up-armor="${a.uid}" ${max || missing(save, c).length ? 'disabled' : ''}>強化</button></span></div>`; }).join('')}</div>` : '<p class="empty">まだ持っていない。</p>'}`;
     } else {
       const allD = CATALOG.decorations.filter(d => !d.dev || (DEV && save.inventory.decorations[d.id]));

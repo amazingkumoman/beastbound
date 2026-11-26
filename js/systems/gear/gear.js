@@ -2,7 +2,7 @@
 // 保存データ（save）を受け取り、計算したり、書き換えたりする。書き換える関数は
 // 成功したら { ok: true, ... }、できないときは { ok: false, error } を返す（save は変えない）。
 
-import { SKILLS, SKILL_THRESHOLDS } from '../../../data/skills.js';
+import { SKILLS, SKILL_THRESHOLDS, SKILL_MAX } from '../../../data/skills.js';
 import { WEAPON_KINDS, buildWeapon, masteryLevel } from '../../../data/weapons.js';
 import { SLOT_SIZES, ARMOR_PARTS } from '../../../data/index.js';
 import {
@@ -16,6 +16,7 @@ import { HIGH2_MATERIALS, HIGH2_ARMOR_SETS, HIGH2_ARMORS, HIGH2_WEAPON_TREE, HIG
 import { EX_MATERIALS, EX_WEAPON_TREE, EX_ARMOR_SETS, EX_ARMORS } from '../../../data/endgame.js';
 import { MASTER2_MATERIALS, MASTER2_ARMOR_SETS, MASTER2_ARMORS, MASTER2_DECORATIONS, MASTER2_WEAPON_TREE } from '../../../data/gear_master2.js';
 import { applyNames } from '../../../data/names.js';
+import { uniqueOf } from '../../../data/uniques.js';
 import { keepWeapon } from '../../../data/weapon_lines.js';
 import { MASTER_MATERIALS, MASTER_ARMOR_SETS, MASTER_ARMORS, MASTER_DECORATIONS, MASTER_WEAPON_TREE, MASTER_GATHER_SETS, MASTER_GATHER_ARMORS } from '../../../data/gear_master.js';
 
@@ -35,15 +36,12 @@ applyNames(CATALOG); // 装備の名前を付け直す（data/names.js）
 const byId = list => Object.fromEntries(list.map(x => [x.id, x]));
 const W = byId(CATALOG.weapons), A = byId(CATALOG.armors), S = byId(CATALOG.sets), D = byId(CATALOG.decorations), SK = byId(SKILLS);
 export const find = { weapon: id => W[id], armor: id => A[id], set: id => S[id], deco: id => D[id], skill: id => SK[id], material: id => CATALOG.materials.find(m => m.id === id) };
-/** 固有スキル・セットボーナスが何をくれるか（2026-11-26 ユーザー：「固有スキルの効果が全然わからない」）
- *  short：「守り Lv2」／long：「守り Lv2（守り +20）」。くれるのは「そのスキルをこのLvにする」（もっと高ければそのまま） */
-export function grantText(grants, long = false) {
-  return Object.entries(grants || {}).map(([k, l]) => {
-    const sk = SK[k]; if (!sk) return k;
-    const v = sk.levels[Math.min(l, sk.levels.length) - 1];
-    return long ? `${sk.name} Lv${l}（${sk.desc(v)}）` : `${sk.name} Lv${l}`;
-  }).join('・');
+/** セットボーナスが何をくれるか：「守り Lv+1」（スキル点のLvに足す・2026-11-26） */
+export function grantText(grants) {
+  return Object.entries(grants || {}).map(([k, l]) => `${SK[k]?.name ?? k} Lv+${l}`).join('・');
 }
+/** 防具の固有スキルの説明（data/uniques.js） */
+export function uniqueText(piece) { const u = uniqueOf(piece); return u ? `${u.name}（${u.text}）` : ''; }
 
 /** 戦闘エンジンが読む補正の初期値（スキルなし） */
 export const NO_MODS = Object.freeze({
@@ -264,19 +262,21 @@ export function computeGear(save) {
     armors[part] = { item: a, piece: p, def: d };
     def += d; addPts(p.skills);
     for (const [e, v] of Object.entries(p.resist || {})) resist[e] = (resist[e] || 0) + v;
-    if (p.unique) uniques.push(p.unique);
+    if (p.unique) uniques.push(uniqueOf(p)); // 固有スキル＝特別な効果（data/uniques.js）
     setCount[p.setId] = (setCount[p.setId] || 0) + 1;
     for (const dId of a.decos) if (dId) { const dd = find.deco(dId); points[dd.skillId] = (points[dd.skillId] || 0) + dd.points; }
   }
   if (wItem) for (const dId of wItem.decos) if (dId) { const dd = find.deco(dId); points[dd.skillId] = (points[dd.skillId] || 0) + dd.points; }
-  const skills = Object.fromEntries(Object.entries(points).map(([k, n]) => [k, levelFromPoints(n)]).filter(([, l]) => l > 0));
+  const capOf = k => Math.min(SKILL_MAX, find.skill(k)?.levels.length ?? SKILL_MAX); // スキルごとの上限
+  const skills = Object.fromEntries(Object.entries(points).map(([k, n]) => [k, Math.min(capOf(k), levelFromPoints(n))]).filter(([, l]) => l > 0));
   const setBonuses = [];
   for (const [setId, n] of Object.entries(setCount)) for (const b of find.set(setId)?.bonuses || []) if (n >= b.pieces) setBonuses.push({ setId, ...b });
-  // 効き目：スキル・固有スキル・セットボーナスのうち、いちばん高い段階を使う
+  // 効き目（2026-11-26 ユーザー：「スキルは加算じゃないんですか？」）：スキル点のLvに、セットボーナスのLvを足す（上限 SKILL_MAX）
   const effective = { ...skills };
-  for (const g of [...uniques, ...setBonuses]) for (const [k, l] of Object.entries(g.grants)) effective[k] = Math.max(effective[k] || 0, l);
+  for (const g of setBonuses) for (const [k, l] of Object.entries(g.grants)) effective[k] = Math.min(capOf(k), (effective[k] || 0) + l);
   const mods = { ...NO_MODS };
-  for (const [k, l] of Object.entries(effective)) { const s = find.skill(k); if (s && l > 0) mods[s.mod] = s.levels[Math.min(l, 3) - 1]; }
+  for (const [k, l] of Object.entries(effective)) { const s = find.skill(k); if (s && l > 0) mods[s.mod] = s.levels[Math.min(l, s.levels.length) - 1]; }
+  for (const u of uniques) if (u.fx) mods[u.fx] = Math.max(mods[u.fx] || 0, u.v); // 固有スキルの効果（engine.js が読む）
   return { weaponItem: wItem, armors, def: def + mods.defAdd, armorDef: def, resist, points, skills, uniques, setBonuses, effective, mods };
 }
 

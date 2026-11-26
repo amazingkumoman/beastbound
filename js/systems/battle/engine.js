@@ -11,6 +11,7 @@ export const RANGE_NAME = { near: '近', mid: '中', far: '遠' };
 /** 20b の数字。調整するときはここだけを変え、決定台帳に記録する */
 export const RULES = {
   playerHp: 100, playerSt: 100,
+  rankHp: { high: 1.05, master: 1.10 }, // 2026-11-26 スキル上限Lv5・足し算・固有スキルの分、上位・マスター級の体力を上げる（試算で戦いの長さを元に戻す）
   stEndTurn: 5, dodgeSt: 15, dodgeRefund: 10, guardPushSt: 15, guardLowSt: 15, moveStGain: 10,
   openingMult: [1, 1.25, 1.5],
   downMult: 1.3, chanceMult: 1.2, sleepWakeMult: 1.5,
@@ -69,9 +70,10 @@ const NO_GEAR = { def: 0, resist: {}, mods: {} };
  */
 export function createBattle({ monster, weapon, items = [], seed = Date.now(), prior = null, gear = NO_GEAR }) {
   const rng = createRng(seed);
+  const HP = Math.round(monster.hp * (RULES.rankHp[monster.rank] ?? 1));
   const parts = {};
   for (const [k, p] of Object.entries(monster.parts)) {
-    parts[k] = prior?.parts?.[k] ? { ...prior.parts[k] } : { hp: Math.round(monster.hp * p.hpRatio), broken: false };
+    parts[k] = prior?.parts?.[k] ? { ...prior.parts[k] } : { hp: Math.round(HP * p.hpRatio), broken: false };
   }
   const ail = {};
   for (const k of Object.keys(RULES.monsterAil)) {
@@ -92,7 +94,7 @@ export function createBattle({ monster, weapon, items = [], seed = Date.now(), p
       afterDodge: false, afterPushed: false, counter: null, chainGuard: false,
     },
     M: {
-      hp: prior?.hp ?? monster.hp, hpMax: monster.hp,
+      hp: prior?.hp ?? HP, hpMax: HP,
       rage: { v: 0, t: 0 }, fatigue: { v: 0, t: 0 }, down: 0, parts, ail,
       disabled: new Set(prior?.disabled ?? []), next: null,
       adapt: { hist: [], level: {}, calm: {} }, signs: new Set(prior?.signs ?? []), fled: prior?.fled ?? false, capSign: prior?.capSign ?? false, phase: prior?.phase ?? monster.startPhase ?? 1, rageCount: prior?.rageCount ?? 0, air: !!monster.startAir,
@@ -241,8 +243,8 @@ function doPlayer(s, ch, ev) {
   const rec = { kind: ch.type, key: ch.techId || ch.type, part: P.aim, range: s.range };
   if (ch.type === 'tech') { const td = W.techs.find(x => x.id === ch.techId); if (td?.cool || (td?.opening ?? 0) >= 2) rec.w = 2; if (td?.cool) (P.cool ??= {})[td.id] = td.cool + 1; } // 大振り・切り札は慣れられやすい。切り札はしばらく使えない
   if (['light', 'heavy', 'tech', 'special'].includes(ch.type)) s.acts++; // 熟練度に数える（その武器で行った行動）
-  const bonusDodge = P.afterDodge, bonusPushed = P.afterPushed;
-  P.afterDodge = false; P.afterPushed = false;
+  const bonusDodge = P.afterDodge, bonusPushed = P.afterPushed, bonusMove = P.afterMove;
+  P.afterDodge = false; P.afterPushed = false; P.afterMove = false;
   if (ch.type === 'special') {
     const sp = W.special;
     P.opening = Math.max(P.opening, sp.opening || 0);
@@ -264,6 +266,8 @@ function doPlayer(s, ch, ev) {
       if (ch.type !== 'light' && W.kind === 'greatsword' && P.charge > 0) { extra *= RULES.chargeMult[P.charge]; say(ev, `溜めた力を解き放つ！`); P.charge = 0; }
       if (def.afterDodge && bonusDodge) extra *= def.afterDodge;
       if (def.afterPushed && bonusPushed) extra *= def.afterPushed;
+      if (bonusDodge) extra *= 1 + s.mod('dodgeNextAtk'); // 固有：縞翼の目
+      if (bonusMove) extra *= 1 + s.mod('moveNextAtk'); // 固有：嵐呼びの翼
       if (W.kind === 'bow' && s.range === 'near') extra *= W.nearMult ?? 1;
       let hits = def.hits || 1;
       if (W.kind === 'twinblades' && ch.type !== 'tech') hits += Math.floor(P.momentum / 2);
@@ -271,6 +275,7 @@ function doPlayer(s, ch, ev) {
       const opt = { heavy: ch.type !== 'light', multi: hits > 1 };
       for (let i = 0; i < hits && s.M.hp > 0; i++) strike(s, def, ev, extra, opt);
       if (def.ail) for (const [k, amt] of Object.entries(def.ail)) addAil(s, k, amt * (1 + s.mod('ailMult')), ev);
+      if (opt.heavy && s.mod('heavyStun') && s.M.hp > 0) addAil(s, 'stun', s.mod('heavyStun'), ev); // 固有：豪腕の拳
       if (def.stGain) P.st = Math.min(P.stMax, P.st + def.stGain);
       if (W.kind === 'twinblades') {
         if (def.need?.momentum) P.momentum = 0;
@@ -289,14 +294,15 @@ function doPlayer(s, ch, ev) {
   } else if (ch.type === 'move') {
     const i = RANGES.indexOf(s.range) + (ch.dir === 'in' ? -1 : 1);
     s.range = RANGES[Math.max(0, Math.min(2, i))];
-    P.st = Math.min(P.stMax, P.st + RULES.moveStGain);
+    P.st = Math.min(P.stMax, P.st + RULES.moveStGain); P.afterMove = true;
     say(ev, ch.dir === 'in' ? '間合いを詰めた。' : '間合いを取った。');
     ev.push({ type: 'range', range: s.range });
   } else if (ch.type === 'item') {
     const it = s.items.find(x => x.id === ch.itemId);
     it.count--;
-    if (it.heal) { const h = Math.min(it.heal, P.hpMax - P.hp); P.hp += h; say(ev, `${it.name}を使った。体力が${h}回復した。`); }
-    if (it.st) { const h = Math.min(it.st, P.stMax - P.st); P.st += h; say(ev, `${it.name}を使った。気力が${h}戻った。`); }
+    const boost = 1 + s.mod('itemBoost'); // 固有：天鯨の歌
+    if (it.heal) { const h = Math.min(Math.round(it.heal * boost), P.hpMax - P.hp); P.hp += h; say(ev, `${it.name}を使った。体力が${h}回復した。`); }
+    if (it.st) { const h = Math.min(Math.round(it.st * boost), P.stMax - P.st); P.st += h; say(ev, `${it.name}を使った。気力が${h}戻った。`); }
     if (it.cure) { it.cure.forEach(k => { delete P.ail[k]; }); say(ev, `${it.name}を使った。体が楽になった。`); }
     if (it.capture) { // 捕獲（24b 4章）：弱っていれば成功。早すぎると失敗して捕獲具は無くなる
       const cap = s.mon.capture;
@@ -319,7 +325,7 @@ function strike(s, def, ev, extra = 1, opt = {}) {
   let partKey = P.aim && !M.parts[P.aim].broken ? P.aim : null;
   if (partKey && !partOpen(s, partKey)) { partKey = null; if (!P.hiddenSaid) { say(ev, '狙った所が隠れていて届かない。'); P.hiddenSaid = true; } }
   const chained = partKey && P.chain === partKey;
-  if (partKey && !W.sureAim && !chained && s.rng.chance(RULES.aimDrift)) { partKey = null; say(ev, '狙いが少しそれた。'); }
+  if (partKey && !W.sureAim && !chained && !s.mod('noDrift') && s.rng.chance(RULES.aimDrift)) { partKey = null; say(ev, '狙いが少しそれた。'); }
   const type = def.typeOverride || W.type;
   let zone = partKey ? mon.parts[partKey].z[type] ?? 1 : mon.body[type] ?? 1;
   const zoneRaw = zone;
@@ -336,6 +342,9 @@ function strike(s, def, ev, extra = 1, opt = {}) {
   if (opt.heavy) mult *= 1 + s.mod('heavyMult');
   if (opt.multi) mult *= 1 + s.mod('multiHitMult');
   if (opt.counter) mult *= 1 + s.mod('counterMult');
+  // 固有スキル（data/uniques.js）
+  if (s.mod('ailedTargetAtk') && Object.values(M.ail).some(a => a.active > 0)) mult *= 1 + s.mod('ailedTargetAtk');
+  if (s.mod('lowHpAtk') && P.hp < P.hpMax * 0.5) mult *= 1 + s.mod('lowHpAtk');
   if (M.down > 0) mult *= RULES.downMult;
   if (P.chance) mult *= RULES.chanceMult + s.mod('chanceAdd');
   if (M.ail.sleep.active > 0) { mult *= RULES.sleepWakeMult; M.ail.sleep.active = 0; say(ev, '眠っていたところに一撃！ 目を覚ました。'); }
@@ -346,16 +355,22 @@ function strike(s, def, ev, extra = 1, opt = {}) {
     dmg += Math.round(W.element.value * (def.mult || 0.6) * ez * (1 + s.mod('elemMult')) * roll(s));
   }
   if (M.harden > 0) dmg = Math.max(1, Math.round(dmg * RULES.hardenMult)); // 硬化中は通りにくい（第12段階）
+  if (zoneRaw >= 1.2 && s.mod('weakSt')) P.st = Math.min(P.stMax, P.st + s.mod('weakSt')); // 固有：星の涙の加護
   M.hp = Math.max(0, M.hp - dmg);
   M.rage.v += dmg / M.hpMax * mon.rage.damageGain;
   if (M.charging) { // 大技の溜めを止める（第11段階）
     M.charging.dmg += dmg;
-    if (M.charging.dmg >= M.hpMax * (M.charging.act.interrupt || 0.06)) {
+    if (M.charging.dmg >= M.hpMax * (M.charging.act.interrupt || 0.06) * (1 - s.mod('interruptEase'))) { // 固有：氷翼の眼
       say(ev, M.charging.act.interruptText || `${mon.name}の溜めを崩した！ 大きく体勢を崩している。`);
       M.charging = null; M.down = Math.max(M.down, 1); ev.push({ type: 'tell', text: '' }); ev.push({ type: 'break-charge' });
     }
   }
   ev.push({ type: 'hit', target: 'monster', part: partKey, feel: zone >= 1.2 ? 'good' : zone < 0.8 ? 'bad' : 'ok' });
+  if (M.hp > 0) { // 固有：当てるたびに状態異常が少し溜まる
+    if (W.element && s.mod('elemPara')) addAil(s, 'paralysis', s.mod('elemPara'), ev);
+    if (s.mod('slowHit')) addAil(s, 'slow', s.mod('slowHit'), ev);
+    if (s.mod('poisonHit')) addAil(s, 'poison', s.mod('poisonHit'), ev);
+  }
   if (partKey) {
     const pt = M.parts[partKey];
     pt.hp -= Math.round(dmg * (def.breakBonus || 1) * (1 + s.mod('partMult')));
@@ -385,7 +400,7 @@ function addAil(s, k, amt, ev) {
   a.v += amt;
   if (a.v >= a.cap) {
     const ma = RULES.monsterAil[k];
-    a.v = 0; a.cap *= 1 + (k === 'stun' ? RULES.ail.stunCapUp : RULES.ail.capUp); a.active = ma.turns; a.signed = false; // 気絶は続けて取りにくい（連発対策・21c 3-2）
+    a.v = 0; a.cap *= 1 + (k === 'stun' ? RULES.ail.stunCapUp : RULES.ail.capUp); a.active = ma.turns + (ma.turns > 0 ? s.mod('ailLonger') : 0); // 固有：三つ首の執念 a.signed = false; // 気絶は続けて取りにくい（連発対策・21c 3-2）
     ev.push({ type: 'ail', target: 'monster', ail: k });
     if (ma.down) { s.M.down = Math.max(s.M.down, ma.down); say(ev, `${s.mon.name}は足を取られて転倒した！`); }
     else say(ev, `${s.mon.name}は${ma.name}状態になった！`);
@@ -482,6 +497,7 @@ function doMonster(s, ev) {
   }
   M.fatigue.v += a.fatigue || 0;
   if (!a.reach.includes(s.range)) { say(ev, `${a.name}！ ……届かなかった。`); if (a.moveTo) moveTo(s, a.moveTo, ev); return; }
+  if (s.mod('shadowDodge') && !a.unguardable && s.rng.chance(s.mod('shadowDodge'))) { say(ev, `${a.name}！ ……影の衣がゆらぎ、攻撃は空を切った。`); if (a.moveTo) moveTo(s, a.moveTo, ev); return; } // 固有：影の衣
   let mult = (M.rage.t > 0 ? mon.rage.mult : 1) * (M.fatigue.t > 0 ? mon.fatigue.mult : 1) * (M.ail.slow?.active > 0 ? RULES.monsterAil.slow.powerMult : 1) * roll(s);
   const W = s.wpn;
   let text, hurt = true, counterNow = false;
@@ -491,32 +507,39 @@ function doMonster(s, ev) {
       mult *= light ? RULES.wideDodgeLight : RULES.wideDodge; text = light ? `${a.name}！ 身軽にかわしたが、かすった。` : `${a.name}！ かわしきれない！`;
     }
     else {
-      mult = 0; hurt = false; text = `${a.name}をかわした！ 好機だ。`; P.chance = true; P.afterDodge = true; P.st = Math.min(P.stMax, P.st + RULES.dodgeRefund);
+      mult = 0; hurt = false; text = `${a.name}をかわした！ 好機だ。`; P.chance = true; P.afterDodge = true; P.st = Math.min(P.stMax, P.st + RULES.dodgeRefund + s.mod('dodgeStGain')); // 固有：疾風の脚
       if (W.kind === 'twinblades') { say(ev, text); text = 'かわしざまに斬り返す！'; strike(s, { mult: RULES.twinCounterMult }, ev, 1, { counter: true }); }
     }
   } else if (P.guard) {
     const gs = s.mod('guardSkill');
     const lvl = Math.min(3, W.guardLevel + (P.guardUp > 0 ? 1 : 0) + (P.chainGuard ? 1 : 0) + (gs >= 3 ? 1 : 0));
     let g = guardResult(lvl, a, P.st);
-    if (W.kind === 'hammer' && g === 'broken') g = 'pushed'; // 崩されにくい
-    mult *= RULES.guard[g];
+    if ((W.kind === 'hammer' || s.mod('noBreak') || gs >= 5) && g === 'broken') g = 'pushed'; // 崩されにくい（固有：金剛の肌）
+    mult *= RULES.guard[g] * (1 - s.mod('guardCut')); // 固有：苔岩の背
     if (g === 'full') {
       hurt = false; text = `${a.name}を完全に受け止めた！ 好機だ。`; P.chance = true; counterNow = !!P.counter;
       if (W.kind === 'greatsword' && P.charge < 2) { P.charge++; text += `（溜め ${P.charge}/2）`; }
       if (P.chainGuard) { M.ail.bind.active = Math.max(M.ail.bind.active, 1); text += ' 鎖が手足に絡みついた！'; }
+      if (s.mod('reflect') && M.hp > 0) { const r = Math.max(1, Math.round(a.power * s.mod('reflect'))); M.hp = Math.max(0, M.hp - r); text += ' 結晶の殻が衝撃をはね返した！'; ev.push({ type: 'hit', target: 'monster', part: null, feel: 'ok' }); } // 固有：晶殻の守り
     }
-    else if (g === 'pushed') { P.st = Math.max(0, P.st - Math.max(0, RULES.guardPushSt - Math.min(2, gs) * 5)); P.afterPushed = true; text = `${a.name}を受けたが、押し込まれた。`; }
+    else if (g === 'pushed') { P.st = Math.max(0, P.st - Math.max(0, RULES.guardPushSt - (gs >= 4 ? 15 : Math.min(2, gs) * 5))); P.afterPushed = true; text = `${a.name}を受けたが、押し込まれた。`; }
     else { P.nextOpening = 1; text = `${a.name}に構えを崩された！`; }
     ev.push({ type: 'guard', result: g });
   } else if (W.kind === 'hammer' && P.opening > 0) {
     mult *= RULES.hammerEndure; text = `${a.name}！ 構わず耐えた。`; // 重槌：崩されにくい
   } else {
     mult *= RULES.openingMult[P.opening] || 1;
+    if (P.opening > 0) mult *= 1 - s.mod('openingCut'); // 固有：鎧角の甲
     text = P.opening ? `${a.name}！ 隙を突かれた！` : `${a.name}！`;
   }
   mult *= 100 / (100 + s.G.def); // 守り（22b 2章）
   if (a.element) mult *= 1 - ((s.G.resist[a.element] || 0) + s.mod('resistAdd')) / 100;
-  const dmg = Math.round(a.power * mult);
+  if (P.hp < P.hpMax * 0.3) mult *= 1 - s.mod('lowHpCut'); // 固有：古獣の甲
+  if (!P.hitTaken && mult > 0) { mult *= 1 - s.mod('firstHitCut'); } // 固有：砂潜りの皮
+  let dmg = Math.round(a.power * mult);
+  if (dmg > 0) P.hitTaken = true;
+  if (dmg >= P.hp && P.hp > 1 && s.mod('guts') && !P.gutsUsed) { dmg = P.hp - 1; P.gutsUsed = true; text += ' ……守り竜の加護が、倒れかけた体を支えた！'; } // 固有：守り竜の加護
+  if (dmg > 0 && a.element && s.mod('elemHitSt')) P.st = Math.min(P.stMax, P.st + s.mod('elemHitSt')); // 固有：凍河の鱗
   if (dmg > 0) { P.hp = Math.max(0, P.hp - dmg); text += ` ${dmg}のダメージ。`; ev.push({ type: 'hit', target: 'player', amount: dmg }); }
   say(ev, text);
   if (counterNow && M.hp > 0) { // 完全に受け止めての反撃
@@ -563,6 +586,7 @@ function endTurn(s, ev) {
     if (t <= 1) delete P.ail[k]; else P.ail[k] = t - 1;
   }
   P.st = Math.min(P.stMax, P.st + RULES.stEndTurn + s.mod('stRegenAdd'));
+  if (s.mod('hpRegen') && P.hp > 0) P.hp = Math.min(P.hpMax, P.hp + s.mod('hpRegen')); // 固有：菌獣の根
   if (P.guardUp > 0) P.guardUp--;
   // モンスターの状態異常
   for (const [k, a] of Object.entries(M.ail)) {
