@@ -15,7 +15,7 @@ export const WEAPON_KINDS = {
     special: { id: 'sp_charge', name: '溜める', st: 0, opening: 2, effect: 'charge', desc: '溜め段階を上げる（最大2）。次の重い攻撃・技が強くなる' },
     techs: [
       { id: 'tech_gs_charge_slash', name: '溜め斬り', st: 25, mult: 1.8, opening: 2, unlock: 0, breakBonus: 1.3, desc: '部位を壊しやすい' },
-      { id: 'tech_gs_parry_slash', name: '受け流し斬り', st: 15, mult: 1.0, opening: 0, unlock: 0, effect: 'counterGuard', desc: 'そのターンは受けの構え。受け止めたら反撃' },
+      { id: 'tech_gs_parry_slash', name: '受け流し斬り', st: 15, mult: 1.0, opening: 0, unlock: 0, effect: 'counterGuard', desc: 'そのターンは防御する。受け止めたら反撃' },
       { id: 'tech_gs_step_slash', name: '踏み込み斬り', st: 15, mult: 1.1, opening: 1, unlock: 2, approach: true, needRange: ['near', 'mid'], desc: '近づきながら斬る（中からも使える）' },
       { id: 'tech_gs_helm_split', name: '兜割り', st: 25, mult: 1.6, opening: 2, unlock: 4, headBonus: 1.65, breakBonus: 1.4, desc: '頭に当てるととても強い（頭以外では控えめ）' },
       { id: 'tech_gs_sweep', name: '薙ぎ払い', st: 18, mult: 1.15, opening: 0, unlock: 6, desc: '隙のない中くらいの一撃（大剣で唯一、振っても隙が出ない）' },
@@ -53,12 +53,12 @@ export const WEAPON_KINDS = {
     light: { name: '突き', mult: 0.65, stGain: 5 },
     heavy: { name: '踏み込み突き', mult: 1.25, st: 12, opening: 1 },
     techs: [
-      { id: 'tech_ln_stance', name: '構え突き', st: 15, mult: 1.0, opening: 0, unlock: 0, effect: 'counterGuard', desc: '盾で受けの構え。完全に受けたら強く反撃' },
+      { id: 'tech_ln_stance', name: '構え突き', st: 15, mult: 1.0, opening: 0, unlock: 0, effect: 'counterGuard', desc: '盾で防御する。完全に受けたら強く反撃' },
       { id: 'tech_ln_charge', name: '突撃', st: 20, mult: 1.3, opening: 1, unlock: 0, approach: true, needRange: ['mid'], desc: '中から近へ詰めながら突く' },
       { id: 'tech_ln_bash', name: '盾打ち', st: 10, mult: 0.7, opening: 0, unlock: 2, typeOverride: 'blunt', stun: 15, desc: '盾で殴る・気絶を少し' },
       { id: 'tech_ln_triple', name: '連突き', st: 20, mult: 0.5, hits: 3, opening: 0, unlock: 4, desc: '隙を見せずに3回突く' },
       { id: 'tech_ln_bore', name: '穿ち突き', st: 25, mult: 2.0, opening: 1, unlock: 6, pierceFloor: 1.0, desc: '硬い部位にも効き目が落ちない' },
-      { id: 'tech_ln_fortress', name: '不動の構え', st: 15, mult: 0, opening: 0, unlock: 8, effect: 'guardUp', desc: '受けの構え。2ターン、受けが一段強くなる' },
+      { id: 'tech_ln_fortress', name: '不動の構え', st: 15, mult: 0, opening: 0, unlock: 8, effect: 'guardUp', desc: '防御する。2ターン、防御が一段強くなる' },
     ],
   },
   wt_bow: {
@@ -82,7 +82,7 @@ export const WEAPON_KINDS = {
     techs: [
       { id: 'tech_cb_hook', name: '鎖掛け', st: 10, mult: 0.6, opening: 0, unlock: 0, effect: 'chain', desc: '狙った部位に鎖をかける（その部位への攻撃が強くなり、拘束も溜まる）' },
       { id: 'tech_cb_pull', name: '引き寄せ斬り', st: 15, mult: 1.2, opening: 1, unlock: 0, approach: true, needRange: ['mid'], desc: '中から近へ引き寄せて斬る' },
-      { id: 'tech_cb_chain_guard', name: '鎖受け', st: 10, mult: 0, opening: 0, unlock: 2, effect: 'chainGuard', desc: '受けの強さ+1。完全に受けたら手足を縛る' },
+      { id: 'tech_cb_chain_guard', name: '鎖受け', st: 10, mult: 0, opening: 0, unlock: 2, effect: 'chainGuard', desc: '防御する（防御の強さ+1）。完全に受けたら手足を縛る' },
       { id: 'tech_cb_bind', name: '巻き締め', st: 25, mult: 0.8, hits: 2, opening: 1, unlock: 4, need: { chain: true }, ail: { bind: 30 }, desc: '鎖をかけた部位を締め上げる' },
       { id: 'tech_cb_swing', name: '振り子斬り', st: 20, mult: 1.3, opening: 0, unlock: 6, retreatTo: 'mid', needRange: ['near'], desc: '斬りながら中へ離れる' },
       { id: 'tech_cb_shackle', name: '縛鎖', st: 30, mult: 1.8, opening: 2, unlock: 8, ail: { bind: 70 }, desc: '鎖をかけていなくても、拘束を大きく溜める' },

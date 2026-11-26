@@ -53,7 +53,7 @@ export function buildNotebook(save) {
   sections.push({ id: 'weapons', title: '武器', entries: Object.entries(WEAPON_KINDS).map(([kind, K]) => {
     const techs = K.techs.filter(t => isLearned(save, kind, t)).map(t => `技 ─ ${t.name}：${t.desc}`);
     const nodes = weaponTree(kind).filter(n => n.tier > 0 && nodeVisible(n)).map(n => `派生 ─ ${n.name}${n.element ? `（${ELEM_NAME[n.element.type]}）` : ''}${n.ail ? `（${AIL_NAME[n.ail.type] ?? n.ail.type}）` : ''}`);
-    return { id: kind, title: K.name, sub: `届く間合い ${K.reach.map(r => RANGE[r]).join('・')}／受けの強さ ${K.guardLevel}`, basic: [...(K.special ? [`専用：${K.special.name}：${K.special.desc}`] : []), ...techs, ...nodes], tactical: null, detail: null };
+    return { id: kind, title: K.name, sub: `届く間合い ${K.reach.map(r => RANGE[r]).join('・')}／防御の強さ ${K.guardLevel}`, basic: [...(K.special ? [`専用：${K.special.name}：${K.special.desc}`] : []), ...techs, ...nodes], tactical: null, detail: null };
   }) });
 
   // ─── 防具 ───

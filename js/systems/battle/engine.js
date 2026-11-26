@@ -254,9 +254,9 @@ function doPlayer(s, ch, ev) {
     if (ch.type === 'heavy' || ch.type === 'tech') P.st -= def.st || 0;
     P.opening = Math.max(P.opening, def.opening || 0);
     ev.push({ type: 'act', who: 'player', name: def.name, kind: ch.type });
-    if (def.effect === 'counterGuard') { P.guard = true; P.counter = def; say(ev, '受けの構えから、反撃をねらう。'); }
-    else if (def.effect === 'guardUp') { P.guard = true; P.guardUp = RULES.guardUpTurns; say(ev, '盾を構え、足を踏みしめた。（しばらく受けが強くなる）'); }
-    else if (def.effect === 'chainGuard') { P.guard = true; P.chainGuard = true; say(ev, '鎖を張って受けの構えを取った。'); }
+    if (def.effect === 'counterGuard') { P.guard = true; P.counter = def; say(ev, '防御の構えから、反撃をねらう。'); }
+    else if (def.effect === 'guardUp') { P.guard = true; P.guardUp = RULES.guardUpTurns; say(ev, '盾を構え、足を踏みしめた。（しばらく防御が強くなる）'); }
+    else if (def.effect === 'chainGuard') { P.guard = true; P.chainGuard = true; say(ev, '鎖を張って防御の構えを取った。'); }
     else if (s.M.next?.stance && ch.type !== 'light' && (def.opening || 0) >= 1 && !s.M.down) { // 見切りの構え（第11段階）
       P.readByStance = true; say(ev, `${def.name}……大振りを見切られた！`); ev.push({ type: 'miss' });
     }
@@ -288,7 +288,7 @@ function doPlayer(s, ch, ev) {
     P.chance = false;
   } else if (ch.type === 'guard') {
     if (W.kind === 'twinblades' && P.momentum > 0) P.momentum = Math.max(0, P.momentum - 1);
-    P.guard = true; say(ev, `${W.name}で受けの構えを取った。`);
+    P.guard = true; say(ev, `${W.name}で防御の構えを取った。`);
   } else if (ch.type === 'dodge') {
     P.st -= dodgeCost(s); P.dodge = true; say(ev, '身を低くして、よける構えを取った。');
   } else if (ch.type === 'move') {

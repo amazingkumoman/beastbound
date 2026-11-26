@@ -27,7 +27,7 @@ export const arenaSetupScreen = {
       <div class="paper">
         <h2>武器の種類</h2>
         <div class="kinds">${WEAPON_KIND_IDS.map(id => `<button class="kind ${id === kind ? 'sel' : ''}" data-kind="${id}">${window.ART.img(ctx.data.WEAPON_TYPES.find(w => w.id === id)?.art || '')}<span>${esc(WEAPON_KINDS[id].name)}</span></button>`).join('')}</div>
-        <p class="note"><b>${esc(node.name)}</b>：${esc(weaponLine(node))}／届く間合い ${K.reach.map(r => RANGE_NAME[r]).join('・')}／受けの強さ ${K.guardLevel}${K.special ? `／専用：${esc(K.special.name)}` : ''}</p>
+        <p class="note"><b>${esc(node.name)}</b>：${esc(weaponLine(node))}／届く間合い ${K.reach.map(r => RANGE_NAME[r]).join('・')}／防御の強さ ${K.guardLevel}${K.special ? `／専用：${esc(K.special.name)}` : ''}</p>
         <p class="note">防具：${armors}／守り ${g.def}（変えるときは拠点の「装備」）</p>
         <h2>技（${TECH_SLOTS}つまで・<span class="cnt">${chosen.size}</span>/${TECH_SLOTS}）</h2>
         <p class="note">熟練度 ${lv}。覚えた技だけ選べます（技は装備画面で覚える）。</p>

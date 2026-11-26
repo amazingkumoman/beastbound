@@ -15,7 +15,7 @@ export const SKILLS = [
   { id: 'skl_ailment', name: '状態異常攻撃', group: '攻め', mod: 'ailMult', levels: [0.15, 0.30, 0.50, 0.65, 0.80], desc: v => `状態異常の溜まり方 +${pct(v)}` },
   { id: 'skl_defense', name: '守り', group: '守り', mod: 'defAdd', levels: [10, 20, 30, 40, 50], desc: v => `守り +${v}` },
   { id: 'skl_vitality', name: '体力', group: '守り', mod: 'hpAdd', levels: [10, 20, 30, 40, 50], desc: v => `最大体力 +${v}` },
-  { id: 'skl_guard', name: '受け上手', group: '守り', mod: 'guardSkill', levels: [1, 2, 3, 4, 5], desc: v => (v >= 5 ? '受けの強さ +1・押されたときの気力の減り −15・構えを崩されない' : v >= 3 ? `受けの強さ +1・押されたときの気力の減り −${v >= 4 ? 15 : 10}` : `押されたときの気力の減り −${v * 5}`) },
+  { id: 'skl_guard', name: '防御上手', group: '守り', mod: 'guardSkill', levels: [1, 2, 3, 4, 5], desc: v => (v >= 5 ? '防御の強さ +1・押されたときの気力の減り −15・防御を崩されない' : v >= 3 ? `防御の強さ +1・押されたときの気力の減り −${v >= 4 ? 15 : 10}` : `押されたときの気力の減り −${v * 5}`) },
   { id: 'skl_evade', name: '回避上手', group: '守り', mod: 'dodgeStReduce', levels: [3, 6, 9, 11, 12], desc: v => `回避の気力 −${v}` },
   { id: 'skl_resist', name: '属性耐性', group: '守り', mod: 'resistAdd', levels: [10, 20, 30, 40, 50], desc: v => `属性の耐性 +${v}` },
   { id: 'skl_ailresist', name: '状態異常耐性', group: '守り', mod: 'ailResist', levels: [1, 2, 3], desc: v => ['状態異常の長さ −1ターン', '状態異常の長さ 半分', '状態異常にかからない'][v - 1] },
