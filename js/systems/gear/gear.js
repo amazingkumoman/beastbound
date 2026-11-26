@@ -35,6 +35,15 @@ applyNames(CATALOG); // 装備の名前を付け直す（data/names.js）
 const byId = list => Object.fromEntries(list.map(x => [x.id, x]));
 const W = byId(CATALOG.weapons), A = byId(CATALOG.armors), S = byId(CATALOG.sets), D = byId(CATALOG.decorations), SK = byId(SKILLS);
 export const find = { weapon: id => W[id], armor: id => A[id], set: id => S[id], deco: id => D[id], skill: id => SK[id], material: id => CATALOG.materials.find(m => m.id === id) };
+/** 固有スキル・セットボーナスが何をくれるか（2026-11-26 ユーザー：「固有スキルの効果が全然わからない」）
+ *  short：「守り Lv2」／long：「守り Lv2（守り +20）」。くれるのは「そのスキルをこのLvにする」（もっと高ければそのまま） */
+export function grantText(grants, long = false) {
+  return Object.entries(grants || {}).map(([k, l]) => {
+    const sk = SK[k]; if (!sk) return k;
+    const v = sk.levels[Math.min(l, sk.levels.length) - 1];
+    return long ? `${sk.name} Lv${l}（${sk.desc(v)}）` : `${sk.name} Lv${l}`;
+  }).join('・');
+}
 
 /** 戦闘エンジンが読む補正の初期値（スキルなし） */
 export const NO_MODS = Object.freeze({

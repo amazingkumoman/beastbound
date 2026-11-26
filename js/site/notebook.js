@@ -7,7 +7,7 @@ import { ITEMS, FOODS } from '../../data/items.js';
 import { researchStage, STAGE_NAMES } from '../systems/story/story.js';
 import { weakWords, ELEM_NAME, AIL_NAME } from '../systems/story/weak.js';
 import { HUNT, find as huntFind, questUnlocked, KIND_NAME, TIME_NAME } from '../systems/hunt/hunt.js';
-import { CATALOG, find, weaponTree } from '../systems/gear/gear.js';
+import { CATALOG, find, weaponTree, grantText } from '../systems/gear/gear.js';
 import { isLearned } from '../systems/gear/learn.js';
 
 const RANGE = { near: '近', mid: '中', far: '遠' };
@@ -59,8 +59,8 @@ export function buildNotebook(save) {
   // ─── 防具 ───
   const sets = CATALOG.sets.filter(s => !s.id.startsWith('set_test') && rankOk(s) && (s.gather || knownMon(s.monsterId)));
   sections.push({ id: 'armors', title: '防具', empty: '大型に出会うと、その素材で作れる防具が記録される。', entries: sets.map(s => {
-    const pieces = CATALOG.armors.filter(a => a.setId === s.id).map(a => `${a.name}：守り${a.def}・${Object.entries(a.skills).map(([k, n]) => `${find.skill(k)?.name}+${n}`).join('・')}${a.unique ? `・固有：${a.unique.name}` : ''}`);
-    return { id: s.id, title: `${s.name}の防具`, sub: s.gather ? '採取の素材で作る' : '', basic: [...pieces, ...s.bonuses.map(b => `${b.pieces}部位：${b.name}`)], tactical: null, detail: null };
+    const pieces = CATALOG.armors.filter(a => a.setId === s.id).map(a => `${a.name}：守り${a.def}・${Object.entries(a.skills).map(([k, n]) => `${find.skill(k)?.name}+${n}`).join('・')}${a.unique ? `・固有：${a.unique.name}（${grantText(a.unique.grants, true)}になる）` : ''}`);
+    return { id: s.id, title: `${s.name}の防具`, sub: s.gather ? '採取の素材で作る' : '', basic: [...pieces, ...s.bonuses.map(b => `${b.pieces}部位：${b.name}（${grantText(b.grants, true)}になる）`)], tactical: null, detail: null };
   }) });
 
   // ─── 装飾品・スキル ───
